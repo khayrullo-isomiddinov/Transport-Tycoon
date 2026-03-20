@@ -4,4 +4,9 @@ out/
 *.class
 bin/
 build/
+
+# Maven
 target/
+
+# macOS
+.DS_Store

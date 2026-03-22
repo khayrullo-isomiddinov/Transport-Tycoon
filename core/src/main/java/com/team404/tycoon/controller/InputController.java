@@ -8,10 +8,12 @@ import com.team404.tycoon.model.TileType;
 public class InputController {
 
     private final GameController gameController;
+    private final PlacementValidator placementValidator;
     private BuildMode currentMode = BuildMode.ROAD;
 
     public InputController(GameController gameController) {
         this.gameController = gameController;
+        this.placementValidator = new PlacementValidator();
     }
 
     public BuildMode getCurrentMode() {
@@ -29,37 +31,26 @@ public class InputController {
     }
 
     public void onPrimaryClick(int tileX, int tileY) {
-        Tile tile = getTileIfInBounds(tileX, tileY);
-        if (tile == null) {
+        GameMap map = gameController.getGameState().getMap();
+
+        if (currentMode == BuildMode.DEMOLISH) {
+            if (placementValidator.canDemolish(map, tileX, tileY)) {
+                map.getTile(tileX, tileY).setType(TileType.EMPTY);
+            }
             return;
         }
 
-        TileType target = currentMode.getTargetType();
-
-        if (currentMode == BuildMode.DEMOLISH) {
-            if (tile.getType() != TileType.CITY && tile.getType() != TileType.INDUSTRIAL_FACILITY) {
-                tile.setType(TileType.EMPTY);
-            }
-        } else if (tile.getType() == TileType.EMPTY) {
-            tile.setType(target);
+        if (placementValidator.canBuild(map, tileX, tileY)) {
+            Tile tile = map.getTile(tileX, tileY);
+            tile.setType(currentMode.getTargetType());
         }
     }
 
     public void onSecondaryClick(int tileX, int tileY) {
-        Tile tile = getTileIfInBounds(tileX, tileY);
-        if (tile == null) {
-            return;
-        }
-        if (tile.getType() != TileType.CITY && tile.getType() != TileType.INDUSTRIAL_FACILITY) {
-            tile.setType(TileType.EMPTY);
-        }
-    }
-
-    private Tile getTileIfInBounds(int tileX, int tileY) {
         GameMap map = gameController.getGameState().getMap();
-        if (!map.isInBounds(tileX, tileY)) {
-            return null;
+
+        if (placementValidator.canDemolish(map, tileX, tileY)) {
+            map.getTile(tileX, tileY).setType(TileType.EMPTY);
         }
-        return map.getTile(tileX, tileY);
     }
 }

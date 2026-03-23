@@ -59,6 +59,9 @@ public class InputController {
                     tileX, tileY, selectedAssetPath, fp[0], fp[1]);
             if (state.canPlaceDecoration(map, dec)) {
                 state.addDecoration(dec);
+                if (shouldPaintFoundation(selectedAssetPath)) {
+                    paintFootprint(map, dec, TileType.CITY);
+                }
             }
             return;
         }
@@ -87,5 +90,24 @@ public class InputController {
         if (placementValidator.canDemolish(map, tileX, tileY)) {
             map.getTile(tileX, tileY).setType(TileType.EMPTY);
         }
+    }
+
+    private static void paintFootprint(GameMap map, PlacedDecoration decoration, TileType type) {
+        for (int dy = 0; dy < decoration.getFootprintTilesH(); dy++) {
+            for (int dx = 0; dx < decoration.getFootprintTilesW(); dx++) {
+                int tx = decoration.getAnchorTileX() + dx;
+                int ty = decoration.getAnchorTileY() + dy;
+                if (map.isInBounds(tx, ty)) {
+                    map.getTile(tx, ty).setType(type);
+                }
+            }
+        }
+    }
+
+    private static boolean shouldPaintFoundation(String resourcePath) {
+        if (resourcePath == null) {
+            return true;
+        }
+        return !resourcePath.toLowerCase().contains("highway-straight");
     }
 }

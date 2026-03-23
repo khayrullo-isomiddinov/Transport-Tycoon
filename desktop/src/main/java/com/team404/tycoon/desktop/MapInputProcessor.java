@@ -5,6 +5,7 @@ import com.badlogic.gdx.InputProcessor;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.math.Vector3;
 import com.team404.tycoon.controller.InputController;
+import com.team404.tycoon.desktop.assets.AssetPaletteState;
 import com.team404.tycoon.model.BuildMode;
 
 public class MapInputProcessor implements InputProcessor {
@@ -12,18 +13,29 @@ public class MapInputProcessor implements InputProcessor {
     private final OrthographicCamera camera;
     private final InputController inputController;
     private final Renderer2D renderer;
+    private final AssetPaletteState assetPaletteState;
     private final Vector3 tmp = new Vector3();
 
     private int dragButton = -1;
     private int lastDragTileX = Integer.MIN_VALUE;
     private int lastDragTileY = Integer.MIN_VALUE;
 
-    public MapInputProcessor(OrthographicCamera camera, InputController inputController, Renderer2D renderer) {
+    public MapInputProcessor(
+            OrthographicCamera camera,
+            InputController inputController,
+            Renderer2D renderer,
+            AssetPaletteState assetPaletteState) {
         this.camera = camera;
         this.inputController = inputController;
         this.renderer = renderer;
+        this.assetPaletteState = assetPaletteState;
     }
 
+    /**
+     * Lwjgl3 / {@link com.badlogic.gdx.InputProcessor} use top-left screen origin (y down).
+     * {@link com.badlogic.gdx.graphics.Camera#unproject} already converts with {@code height - y};
+     * do not flip y here or picking is wrong (isometric math mixes x and y).
+     */
     private int[] unprojectToTile(int screenX, int screenY) {
         tmp.set(screenX, screenY, 0f);
         camera.unproject(tmp);
@@ -32,6 +44,9 @@ public class MapInputProcessor implements InputProcessor {
 
     @Override
     public boolean touchDown(int screenX, int screenY, int pointer, int button) {
+        if (UiChrome.isInTopChrome(screenX, screenY)) {
+            return false;
+        }
         int[] tile = unprojectToTile(screenX, screenY);
         dragButton = button;
         lastDragTileX = tile[0];
@@ -43,6 +58,9 @@ public class MapInputProcessor implements InputProcessor {
 
     @Override
     public boolean touchDragged(int screenX, int screenY, int pointer) {
+        if (UiChrome.isInTopChrome(screenX, screenY)) {
+            return false;
+        }
         int[] tile = unprojectToTile(screenX, screenY);
         renderer.setHoverTile(tile[0], tile[1]);
 
@@ -72,6 +90,9 @@ public class MapInputProcessor implements InputProcessor {
 
     @Override
     public boolean mouseMoved(int screenX, int screenY) {
+        if (UiChrome.isInTopChrome(screenX, screenY)) {
+            return false;
+        }
         int[] tile = unprojectToTile(screenX, screenY);
         renderer.setHoverTile(tile[0], tile[1]);
         return false;
@@ -79,6 +100,11 @@ public class MapInputProcessor implements InputProcessor {
 
     @Override
     public boolean scrolled(float amountX, float amountY) {
+        float mx = com.badlogic.gdx.Gdx.input.getX();
+        float my = com.badlogic.gdx.Gdx.input.getY();
+        if (UiChrome.isInTopChrome(mx, my)) {
+            return false;
+        }
         if (Input.Buttons.LEFT == dragButton || Input.Buttons.RIGHT == dragButton) {
             return false;
         }
@@ -96,18 +122,23 @@ public class MapInputProcessor implements InputProcessor {
     public boolean keyDown(int keycode) {
         switch (keycode) {
             case Input.Keys.NUM_1:
+                assetPaletteState.clearSelection();
                 inputController.setCurrentMode(BuildMode.ROAD);
                 return true;
             case Input.Keys.NUM_2:
+                assetPaletteState.clearSelection();
                 inputController.setCurrentMode(BuildMode.WATER);
                 return true;
             case Input.Keys.NUM_3:
+                assetPaletteState.clearSelection();
                 inputController.setCurrentMode(BuildMode.FOREST);
                 return true;
             case Input.Keys.NUM_4:
+                assetPaletteState.clearSelection();
                 inputController.setCurrentMode(BuildMode.DEMOLISH);
                 return true;
             case Input.Keys.TAB:
+                assetPaletteState.clearSelection();
                 inputController.cycleModeForward();
                 return true;
             default:

@@ -5,11 +5,21 @@ import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.team404.tycoon.controller.GameController;
+import com.team404.tycoon.desktop.assets.DecorationMetadata;
+import com.team404.tycoon.desktop.assets.DecorationTextureCache;
 import com.team404.tycoon.model.GameMap;
+import com.team404.tycoon.model.GameState;
+import com.team404.tycoon.model.PlacedDecoration;
 import com.team404.tycoon.model.Tile;
 import com.team404.tycoon.model.TileType;
+
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 
 public class Renderer2D implements GameRenderer {
 
@@ -28,13 +38,17 @@ public class Renderer2D implements GameRenderer {
 
     private final OrthographicCamera camera;
     private final ShapeRenderer shape;
+    private final SpriteBatch batch;
+    private final DecorationTextureCache textureCache;
 
     private int hoverTileX = -1;
     private int hoverTileY = -1;
 
-    public Renderer2D() {
+    public Renderer2D(DecorationTextureCache textureCache) {
         this.camera = new OrthographicCamera();
         this.shape = new ShapeRenderer();
+        this.batch = new SpriteBatch();
+        this.textureCache = textureCache;
     }
 
     public void setHoverTile(int tileX, int tileY) {
@@ -52,10 +66,12 @@ public class Renderer2D implements GameRenderer {
         camera.update();
         shape.setProjectionMatrix(camera.combined);
 
-        GameMap map = controller.getGameState().getMap();
+        GameState state = controller.getGameState();
+        GameMap map = state.getMap();
         drawEdgeWalls(map);
         drawTileSurface(map);
         drawGridLines(map);
+        drawDecorations(state);
         drawHoverHighlight(map);
     }
 
@@ -172,6 +188,42 @@ public class Renderer2D implements GameRenderer {
         Gdx.gl.glDisable(GL20.GL_BLEND);
     }
 
+    private void drawDecorations(GameState state) {
+        List<PlacedDecoration> list = new ArrayList<>(state.getDecorations());
+        // Draw larger (x+y) first (back / top of screen), smaller last (front / bottom) so nearer sprites win.
+        list.sort(Comparator
+                .comparingInt(PlacedDecoration::depthSortKey).reversed()
+                .thenComparingInt(PlacedDecoration::getAnchorTileX)
+                .thenComparingInt(PlacedDecoration::getAnchorTileY));
+
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+        batch.begin();
+        batch.setProjectionMatrix(camera.combined);
+        batch.setColor(Color.WHITE);
+
+        for (PlacedDecoration d : list) {
+            Texture tex = textureCache.get(d.getResourcePath());
+            int fw = d.getFootprintTilesW();
+            int fh = d.getFootprintTilesH();
+            float drawW = TILE_W * (0.5f * (fw + fh));
+            float aspect = (float) tex.getHeight() / (float) tex.getWidth();
+            float vScale = DecorationMetadata.verticalOverlapScale(
+                    d.getResourcePath(), fw, fh);
+            float drawH = drawW * aspect * vScale;
+
+            int ax = d.getAnchorTileX();
+            int ay = d.getAnchorTileY();
+            float sx = toScreenX(ax, ay);
+            float sy = toScreenY(ax, ay);
+            float by = sy + TILE_H / 2f;
+            batch.draw(tex, sx - drawW / 2f, by, drawW, drawH);
+        }
+
+        batch.end();
+        Gdx.gl.glDisable(GL20.GL_BLEND);
+    }
+
     public static float toScreenX(int tileX, int tileY) {
         return (tileX - tileY) * (TILE_W / 2f);
     }
@@ -181,13 +233,15 @@ public class Renderer2D implements GameRenderer {
     }
 
     /**
-     * Converts world coordinates to tile indices.
-     * The diamond center is offset by half a tile height from toScreenY.
+     * Inverse of {@link #toScreenX} / {@link #toScreenY} at the tile origin (same space as unproject).
      */
     public static int[] toTile(float worldX, float worldY) {
-        float adjusted = worldY - TILE_H / 2f;
-        float fx = (worldX / (TILE_W / 2f) + adjusted / (TILE_H / 2f)) / 2f;
-        float fy = (adjusted / (TILE_H / 2f) - worldX / (TILE_W / 2f)) / 2f;
+        float halfW = TILE_W / 2f;
+        float halfH = TILE_H / 2f;
+        float a = worldX / halfW;
+        float b = worldY / halfH;
+        float fx = (a + b) * 0.5f;
+        float fy = (b - a) * 0.5f;
         return new int[]{(int) Math.floor(fx), (int) Math.floor(fy)};
     }
 
@@ -230,6 +284,7 @@ public class Renderer2D implements GameRenderer {
     @Override
     public void dispose() {
         shape.dispose();
+        batch.dispose();
     }
 
     private static Color colorFor(TileType type) {

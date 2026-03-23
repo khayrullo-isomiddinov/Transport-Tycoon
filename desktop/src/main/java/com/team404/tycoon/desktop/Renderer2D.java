@@ -207,6 +207,7 @@ public class Renderer2D implements GameRenderer {
             int fw = d.getFootprintTilesW();
             int fh = d.getFootprintTilesH();
             float drawW = TILE_W * (0.5f * (fw + fh));
+            drawW *= DecorationMetadata.widthScale(d.getResourcePath());
             float aspect = (float) tex.getHeight() / (float) tex.getWidth();
             float vScale = DecorationMetadata.verticalOverlapScale(
                     d.getResourcePath(), fw, fh);
@@ -216,7 +217,7 @@ public class Renderer2D implements GameRenderer {
             int ay = d.getAnchorTileY();
             float sx = toScreenX(ax, ay);
             float sy = toScreenY(ax, ay);
-            float by = sy + TILE_H / 2f;
+            float by = sy + TILE_H / 2f + DecorationMetadata.groundYOffset(d.getResourcePath(), drawH);
             batch.draw(tex, sx - drawW / 2f, by, drawW, drawH);
         }
 

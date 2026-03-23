@@ -1,12 +1,58 @@
-.idea/
-*.iml
+# ===================================
+# Build outputs
+# ===================================
+target/
 out/
-*.class
 bin/
 build/
+obj/
+*.class
+*.jar
+*.exe
+*.dll
 
-# Maven
-target/
+# ===================================
+# IDE files - Cursor & VS Code
+# ===================================
+.cursor/
+.cursorignore
+.cursorindexingignore
+.cursorrules
+.vscode/
+*.code-workspace
 
-# macOS
+# ===================================
+# IDE files - IntelliJ
+# ===================================
+.idea/
+*.iml
+
+# ===================================
+# IDE files - Visual Studio
+# ===================================
+.vs/
+*.suo
+*.user
+
+# ===================================
+# Windows system files
+# ===================================
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# ===================================
+# Mac files (if using WSL or Mac)
+# ===================================
 .DS_Store
+
+# ===================================
+# Logs and temp files
+# ===================================
+*.log
+*.tmp
+
+# ===================================
+# Dependencies
+# ===================================
+node_modules/

@@ -1,0 +1,55 @@
+# One PNG filename per line (used when directory listing fails, e.g. IDE run without Maven resource copy)
+asphalt with sth.png
+asphalt.png
+bigaphaslt.png
+bighighwaydown.png
+bighighwayleft.png
+bighighwayright.png
+bighighwayup.png
+black asphalt.png
+building1.png
+building2.png
+building3.png
+building4.png
+building5.png
+building6.png
+building7.png
+building8.png
+downblue.png
+downblueArrow.png
+east-up.png
+garage.png
+garage1.png
+grass.png
+greyroaddown.png
+greyroadleft.png
+greyroadright.png
+greyroadup.png
+groundgrey.png
+highway-straight.png
+highway-top-left.png
+left-down.png
+left-up.png
+leftblue.png
+leftblueArrow.png
+pink wall right.png
+pink wall.png
+playground.png
+right-down.png
+rightblue.png
+rightblueArrow.png
+somegreybuilding.png
+teplitsa.png
+trafficlights.png
+tree.png
+upblue.png
+upblueArrow.png
+villagehouse.png
+villagehousewithgrass.png
+villagehousewithgrass2.png
+yelloweoadright.png
+yellowroadintersectiondown.png
+yellowroadintersectionleft.png
+yellowroadintersectionright.png
+yellowroadintersectionup.png
+yellowroadleft.png

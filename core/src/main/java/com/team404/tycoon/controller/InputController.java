@@ -108,6 +108,9 @@ public class InputController {
         if (resourcePath == null) {
             return true;
         }
-        return !resourcePath.toLowerCase().contains("highway-straight");
+        String n = resourcePath.toLowerCase();
+        return !n.contains("highway-straight")
+                && !n.contains("highway-top-left")
+                && !n.contains("intersection");
     }
 }

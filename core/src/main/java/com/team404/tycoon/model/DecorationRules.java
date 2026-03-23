@@ -10,8 +10,8 @@ public final class DecorationRules {
 
     public static int[] footprintForPath(String resourcePath) {
         String n = resourcePath.toLowerCase();
-        if (n.contains("highway-straight")) {
-            // Keep it horizontal by art orientation, but occupy only one grid cell.
+        if (n.contains("highway-straight") || n.contains("highway-top-left") || n.contains("intersection")) {
+            // One cell; art defines horizontal vs vertical road direction on the iso grid.
             return new int[]{1, 1};
         }
         if (n.contains("bigaphasit")) {

@@ -10,6 +10,7 @@ import com.team404.tycoon.desktop.assets.AssetPaletteState;
 import com.team404.tycoon.desktop.assets.DecorationTextureCache;
 import com.team404.tycoon.desktop.assets.ResourceFileHandles;
 import com.team404.tycoon.model.GameState;
+import com.team404.tycoon.model.RandomMapGenerator;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -28,6 +29,7 @@ public class TransportTycoonGame extends ApplicationAdapter {
     @Override
     public void create() {
         GameState gameState = new GameState(64, 64);
+        RandomMapGenerator.generate(gameState, System.nanoTime());
         this.gameController = new GameController(gameState);
         this.inputController = new InputController(gameController);
 

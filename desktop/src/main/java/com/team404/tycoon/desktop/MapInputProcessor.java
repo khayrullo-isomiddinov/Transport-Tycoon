@@ -6,7 +6,6 @@ import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.math.Vector3;
 import com.team404.tycoon.controller.InputController;
 import com.team404.tycoon.desktop.assets.AssetPaletteState;
-import com.team404.tycoon.model.BuildMode;
 
 public class MapInputProcessor implements InputProcessor {
 
@@ -19,6 +18,9 @@ public class MapInputProcessor implements InputProcessor {
     private int dragButton = -1;
     private int lastDragTileX = Integer.MIN_VALUE;
     private int lastDragTileY = Integer.MIN_VALUE;
+    private Renderer2D.BuildPreviewMode buildDragMode = null;
+    private int buildDragStartTileX = Integer.MIN_VALUE;
+    private int buildDragStartTileY = Integer.MIN_VALUE;
 
     public MapInputProcessor(
             OrthographicCamera camera,
@@ -52,6 +54,16 @@ public class MapInputProcessor implements InputProcessor {
         lastDragTileX = tile[0];
         lastDragTileY = tile[1];
 
+        if (button == Input.Buttons.LEFT && inputController.getSelectedAssetPath() != null) {
+            buildDragStartTileX = tile[0];
+            buildDragStartTileY = tile[1];
+            buildDragMode = pickBuildPreviewMode();
+            int endX = (buildDragMode == Renderer2D.BuildPreviewMode.VERTICAL_LINE) ? buildDragStartTileX : tile[0];
+            int endY = (buildDragMode == Renderer2D.BuildPreviewMode.HORIZONTAL_LINE) ? buildDragStartTileY : tile[1];
+            renderer.setBuildPreview(buildDragStartTileX, buildDragStartTileY, endX, endY, buildDragMode);
+            return true;
+        }
+
         applyAction(tile[0], tile[1], button);
         return true;
     }
@@ -64,6 +76,13 @@ public class MapInputProcessor implements InputProcessor {
         int[] tile = unprojectToTile(screenX, screenY);
         renderer.setHoverTile(tile[0], tile[1]);
 
+        if (buildDragMode != null) {
+            int endX = (buildDragMode == Renderer2D.BuildPreviewMode.VERTICAL_LINE) ? buildDragStartTileX : tile[0];
+            int endY = (buildDragMode == Renderer2D.BuildPreviewMode.HORIZONTAL_LINE) ? buildDragStartTileY : tile[1];
+            renderer.setBuildPreview(buildDragStartTileX, buildDragStartTileY, endX, endY, buildDragMode);
+            return true;
+        }
+
         if (tile[0] != lastDragTileX || tile[1] != lastDragTileY) {
             lastDragTileX = tile[0];
             lastDragTileY = tile[1];
@@ -74,10 +93,66 @@ public class MapInputProcessor implements InputProcessor {
 
     @Override
     public boolean touchUp(int screenX, int screenY, int pointer, int button) {
+        if (buildDragMode != null && button == Input.Buttons.LEFT) {
+            int[] tile = unprojectToTile(screenX, screenY);
+            if (buildDragMode == Renderer2D.BuildPreviewMode.HORIZONTAL_LINE) {
+                int minX = Math.min(buildDragStartTileX, tile[0]);
+                int maxX = Math.max(buildDragStartTileX, tile[0]);
+                for (int x = minX; x <= maxX; x++) {
+                    inputController.onPrimaryClick(x, buildDragStartTileY);
+                }
+            } else if (buildDragMode == Renderer2D.BuildPreviewMode.VERTICAL_LINE) {
+                int minY = Math.min(buildDragStartTileY, tile[1]);
+                int maxY = Math.max(buildDragStartTileY, tile[1]);
+                for (int y = minY; y <= maxY; y++) {
+                    inputController.onPrimaryClick(buildDragStartTileX, y);
+                }
+            } else {
+                int minX = Math.min(buildDragStartTileX, tile[0]);
+                int maxX = Math.max(buildDragStartTileX, tile[0]);
+                int minY = Math.min(buildDragStartTileY, tile[1]);
+                int maxY = Math.max(buildDragStartTileY, tile[1]);
+                for (int y = minY; y <= maxY; y++) {
+                    for (int x = minX; x <= maxX; x++) {
+                        inputController.onPrimaryClick(x, y);
+                    }
+                }
+            }
+            buildDragMode = null;
+            renderer.clearBuildPreview();
+            dragButton = -1;
+            lastDragTileX = Integer.MIN_VALUE;
+            lastDragTileY = Integer.MIN_VALUE;
+            return true;
+        }
         dragButton = -1;
         lastDragTileX = Integer.MIN_VALUE;
         lastDragTileY = Integer.MIN_VALUE;
         return false;
+    }
+
+    private boolean isHorizontalRoadSelected() {
+        String selected = inputController.getSelectedAssetPath();
+        return selected != null && selected.toLowerCase().contains("highway-straight");
+    }
+
+    private boolean isVerticalRoadSelected() {
+        String selected = inputController.getSelectedAssetPath();
+        return selected != null && selected.toLowerCase().contains("highway-top-left");
+    }
+
+    private boolean isLinearRoadSelected() {
+        return isHorizontalRoadSelected() || isVerticalRoadSelected();
+    }
+
+    private Renderer2D.BuildPreviewMode pickBuildPreviewMode() {
+        if (isHorizontalRoadSelected()) {
+            return Renderer2D.BuildPreviewMode.HORIZONTAL_LINE;
+        }
+        if (isVerticalRoadSelected()) {
+            return Renderer2D.BuildPreviewMode.VERTICAL_LINE;
+        }
+        return Renderer2D.BuildPreviewMode.AREA;
     }
 
     private void applyAction(int tileX, int tileY, int button) {
@@ -120,30 +195,7 @@ public class MapInputProcessor implements InputProcessor {
 
     @Override
     public boolean keyDown(int keycode) {
-        switch (keycode) {
-            case Input.Keys.NUM_1:
-                assetPaletteState.clearSelection();
-                inputController.setCurrentMode(BuildMode.ROAD);
-                return true;
-            case Input.Keys.NUM_2:
-                assetPaletteState.clearSelection();
-                inputController.setCurrentMode(BuildMode.WATER);
-                return true;
-            case Input.Keys.NUM_3:
-                assetPaletteState.clearSelection();
-                inputController.setCurrentMode(BuildMode.FOREST);
-                return true;
-            case Input.Keys.NUM_4:
-                assetPaletteState.clearSelection();
-                inputController.setCurrentMode(BuildMode.DEMOLISH);
-                return true;
-            case Input.Keys.TAB:
-                assetPaletteState.clearSelection();
-                inputController.cycleModeForward();
-                return true;
-            default:
-                return false;
-        }
+        return false;
     }
 
     @Override
@@ -159,6 +211,8 @@ public class MapInputProcessor implements InputProcessor {
     @Override
     public boolean touchCancelled(int screenX, int screenY, int pointer, int button) {
         dragButton = -1;
+        buildDragMode = null;
+        renderer.clearBuildPreview();
         return false;
     }
 }

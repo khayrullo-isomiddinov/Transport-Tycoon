@@ -6,6 +6,8 @@ import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.team404.tycoon.controller.GameController;
@@ -16,6 +18,7 @@ import com.team404.tycoon.model.GameState;
 import com.team404.tycoon.model.PlacedDecoration;
 import com.team404.tycoon.model.Tile;
 import com.team404.tycoon.model.TileType;
+import com.team404.tycoon.model.Town;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -39,15 +42,26 @@ public class Renderer2D implements GameRenderer {
     private final OrthographicCamera camera;
     private final ShapeRenderer shape;
     private final SpriteBatch batch;
+    private final BitmapFont font;
+    private final GlyphLayout glyphLayout;
     private final DecorationTextureCache textureCache;
+    private float waterAnimTime;
 
     private int hoverTileX = -1;
     private int hoverTileY = -1;
+    private boolean buildPreviewActive;
+    private BuildPreviewMode buildPreviewMode = BuildPreviewMode.AREA;
+    private int buildPreviewStartX;
+    private int buildPreviewStartY;
+    private int buildPreviewEndX;
+    private int buildPreviewEndY;
 
     public Renderer2D(DecorationTextureCache textureCache) {
         this.camera = new OrthographicCamera();
         this.shape = new ShapeRenderer();
         this.batch = new SpriteBatch();
+        this.font = new BitmapFont();
+        this.glyphLayout = new GlyphLayout();
         this.textureCache = textureCache;
     }
 
@@ -56,9 +70,28 @@ public class Renderer2D implements GameRenderer {
         this.hoverTileY = tileY;
     }
 
+    public void setBuildPreview(
+            int startTileX,
+            int startTileY,
+            int endTileX,
+            int endTileY,
+            BuildPreviewMode mode) {
+        this.buildPreviewActive = true;
+        this.buildPreviewMode = mode;
+        this.buildPreviewStartX = startTileX;
+        this.buildPreviewStartY = startTileY;
+        this.buildPreviewEndX = endTileX;
+        this.buildPreviewEndY = endTileY;
+    }
+
+    public void clearBuildPreview() {
+        this.buildPreviewActive = false;
+    }
+
     @Override
     public void render(GameController controller, float delta) {
         handleCameraInput(delta);
+        waterAnimTime += delta;
 
         Gdx.gl.glClearColor(0.08f, 0.08f, 0.1f, 1f);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
@@ -72,7 +105,31 @@ public class Renderer2D implements GameRenderer {
         drawTileSurface(map);
         drawGridLines(map);
         drawDecorations(state);
+        drawTownNames(state);
+        drawBuildPreview(map);
         drawHoverHighlight(map);
+    }
+
+    private void drawTownNames(GameState state) {
+        if (state.getTowns().isEmpty()) {
+            return;
+        }
+        batch.begin();
+        batch.setProjectionMatrix(camera.combined);
+        for (Town t : state.getTowns()) {
+            String name = t.getName();
+            float sx = toScreenX(t.getCenterX(), t.getCenterY());
+            float sy = toScreenY(t.getCenterX(), t.getCenterY());
+            glyphLayout.setText(font, name);
+            float x = sx - glyphLayout.width * 0.5f;
+            float y = sy + TILE_H * 1.8f;
+            font.setColor(0f, 0f, 0f, 0.8f);
+            font.draw(batch, name, x + 1f, y - 1f);
+            font.setColor(0.95f, 0.95f, 0.95f, 1f);
+            font.draw(batch, name, x, y);
+        }
+        font.setColor(Color.WHITE);
+        batch.end();
     }
 
     private void drawTileSurface(GameMap map) {
@@ -82,7 +139,7 @@ public class Renderer2D implements GameRenderer {
                 Tile tile = map.getTile(x, y);
                 float sx = toScreenX(x, y);
                 float sy = toScreenY(x, y);
-                drawDiamond(sx, sy, colorFor(tile.getType()));
+                drawDiamond(sx, sy, colorFor(tile.getType(), x, y));
             }
         }
         shape.end();
@@ -122,6 +179,81 @@ public class Renderer2D implements GameRenderer {
         Gdx.gl.glLineWidth(1f);
 
         Gdx.gl.glDisable(GL20.GL_BLEND);
+    }
+
+    private void drawBuildPreview(GameMap map) {
+        if (!buildPreviewActive) {
+            return;
+        }
+        int minX = Math.min(buildPreviewStartX, buildPreviewEndX);
+        int maxX = Math.max(buildPreviewStartX, buildPreviewEndX);
+        int minY = Math.min(buildPreviewStartY, buildPreviewEndY);
+        int maxY = Math.max(buildPreviewStartY, buildPreviewEndY);
+
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+        shape.begin(ShapeRenderer.ShapeType.Line);
+        shape.setColor(new Color(1f, 1f, 1f, 0.95f));
+        for (int y = minY; y <= maxY; y++) {
+            for (int x = minX; x <= maxX; x++) {
+                if (buildPreviewMode == BuildPreviewMode.HORIZONTAL_LINE && y != buildPreviewStartY) {
+                    continue;
+                }
+                if (buildPreviewMode == BuildPreviewMode.VERTICAL_LINE && x != buildPreviewStartX) {
+                    continue;
+                }
+                if (!map.isInBounds(x, y)) {
+                    continue;
+                }
+                float sx = toScreenX(x, y);
+                float sy = toScreenY(x, y);
+                float hw = TILE_W / 2f;
+                float hh = TILE_H / 2f;
+                float by = sy + hh;
+                shape.line(sx, by + TILE_H, sx - hw, by + hh);
+                shape.line(sx - hw, by + hh, sx, by);
+                shape.line(sx, by, sx + hw, by + hh);
+                shape.line(sx + hw, by + hh, sx, by + TILE_H);
+            }
+        }
+        shape.end();
+        Gdx.gl.glDisable(GL20.GL_BLEND);
+
+        int count = 0;
+        for (int y = minY; y <= maxY; y++) {
+            for (int x = minX; x <= maxX; x++) {
+                if (buildPreviewMode == BuildPreviewMode.HORIZONTAL_LINE && y != buildPreviewStartY) {
+                    continue;
+                }
+                if (buildPreviewMode == BuildPreviewMode.VERTICAL_LINE && x != buildPreviewStartX) {
+                    continue;
+                }
+                if (map.isInBounds(x, y)) {
+                    count++;
+                }
+            }
+        }
+        if (count <= 0) {
+            return;
+        }
+        String label = "Length: " + count;
+        float sx = toScreenX(buildPreviewEndX, buildPreviewEndY);
+        float sy = toScreenY(buildPreviewEndX, buildPreviewEndY);
+        float labelX = sx + TILE_W * 0.4f;
+        float labelY = sy + TILE_H * 1.15f;
+
+        batch.begin();
+        batch.setProjectionMatrix(camera.combined);
+        font.setColor(Color.WHITE);
+        glyphLayout.setText(font, label);
+        font.draw(batch, label, labelX, labelY);
+        batch.end();
+    }
+
+    public enum BuildPreviewMode {
+        HORIZONTAL_LINE,
+        VERTICAL_LINE,
+        AREA
     }
 
     private void drawEdgeWalls(GameMap map) {
@@ -286,9 +418,10 @@ public class Renderer2D implements GameRenderer {
     public void dispose() {
         shape.dispose();
         batch.dispose();
+        font.dispose();
     }
 
-    private static Color colorFor(TileType type) {
+    private Color colorFor(TileType type, int tileX, int tileY) {
         switch (type) {
             case EMPTY:
                 return new Color(0.28f, 0.52f, 0.22f, 1f);
@@ -299,12 +432,25 @@ public class Renderer2D implements GameRenderer {
             case ROAD:
                 return new Color(0.45f, 0.44f, 0.42f, 1f);
             case WATER:
-                return new Color(0.22f, 0.45f, 0.78f, 1f);
+                return animatedWaterColor(tileX, tileY);
             case FOREST:
                 return new Color(0.12f, 0.40f, 0.14f, 1f);
             default:
                 return Color.MAGENTA;
         }
+    }
+
+    private Color animatedWaterColor(int tileX, int tileY) {
+        // Cheap "moving water" look: combine two low-frequency waves
+        // so neighboring tiles drift subtly in brightness over time.
+        float waveA = (float) Math.sin(waterAnimTime * 1.7f + tileX * 0.42f + tileY * 0.31f);
+        float waveB = (float) Math.sin(waterAnimTime * 2.4f - tileX * 0.27f + tileY * 0.48f);
+        float wave = (waveA * 0.6f + waveB * 0.4f) * 0.5f + 0.5f; // [0..1]
+
+        float r = 0.16f + wave * 0.10f;
+        float g = 0.38f + wave * 0.14f;
+        float b = 0.70f + wave * 0.18f;
+        return new Color(r, g, b, 1f);
     }
 
     public void pan(float amountX, float amountY) {

@@ -13,6 +13,7 @@ public class GameState {
 
     private final GameMap map;
     private final List<PlacedDecoration> decorations = new ArrayList<>();
+    private final List<Town> towns = new ArrayList<>();
 
     public GameState(int mapWidth, int mapHeight) {
         this.map = new GameMap(mapWidth, mapHeight);
@@ -28,6 +29,18 @@ public class GameState {
 
     public void addDecoration(PlacedDecoration decoration) {
         decorations.add(decoration);
+    }
+
+    public List<Town> getTowns() {
+        return Collections.unmodifiableList(towns);
+    }
+
+    public void clearTowns() {
+        towns.clear();
+    }
+
+    public void addTown(Town town) {
+        towns.add(town);
     }
 
     /**

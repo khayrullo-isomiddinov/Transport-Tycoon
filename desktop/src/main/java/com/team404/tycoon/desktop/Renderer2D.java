@@ -6,6 +6,8 @@ import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.team404.tycoon.controller.GameController;
@@ -39,21 +41,51 @@ public class Renderer2D implements GameRenderer {
     private final OrthographicCamera camera;
     private final ShapeRenderer shape;
     private final SpriteBatch batch;
+    private final BitmapFont font;
+    private final GlyphLayout glyphLayout;
     private final DecorationTextureCache textureCache;
 
     private int hoverTileX = -1;
     private int hoverTileY = -1;
+    private boolean straightRoadPreviewActive;
+    private boolean straightRoadPreviewVertical;
+    private int straightRoadFixedX;
+    private int straightRoadFixedY;
+    private int straightRoadStartAxis;
+    private int straightRoadEndAxis;
 
     public Renderer2D(DecorationTextureCache textureCache) {
         this.camera = new OrthographicCamera();
         this.shape = new ShapeRenderer();
         this.batch = new SpriteBatch();
+        this.font = new BitmapFont();
+        this.glyphLayout = new GlyphLayout();
         this.textureCache = textureCache;
     }
 
     public void setHoverTile(int tileX, int tileY) {
         this.hoverTileX = tileX;
         this.hoverTileY = tileY;
+    }
+
+    public void setStraightRoadPreviewHorizontal(int startTileX, int tileY, int endTileX) {
+        this.straightRoadPreviewActive = true;
+        this.straightRoadPreviewVertical = false;
+        this.straightRoadFixedY = tileY;
+        this.straightRoadStartAxis = startTileX;
+        this.straightRoadEndAxis = endTileX;
+    }
+
+    public void setStraightRoadPreviewVertical(int tileX, int startTileY, int endTileY) {
+        this.straightRoadPreviewActive = true;
+        this.straightRoadPreviewVertical = true;
+        this.straightRoadFixedX = tileX;
+        this.straightRoadStartAxis = startTileY;
+        this.straightRoadEndAxis = endTileY;
+    }
+
+    public void clearStraightRoadPreview() {
+        this.straightRoadPreviewActive = false;
     }
 
     @Override
@@ -72,6 +104,7 @@ public class Renderer2D implements GameRenderer {
         drawTileSurface(map);
         drawGridLines(map);
         drawDecorations(state);
+        drawStraightRoadPreview(map);
         drawHoverHighlight(map);
     }
 
@@ -122,6 +155,63 @@ public class Renderer2D implements GameRenderer {
         Gdx.gl.glLineWidth(1f);
 
         Gdx.gl.glDisable(GL20.GL_BLEND);
+    }
+
+    private void drawStraightRoadPreview(GameMap map) {
+        if (!straightRoadPreviewActive) {
+            return;
+        }
+        int minAxis = Math.min(straightRoadStartAxis, straightRoadEndAxis);
+        int maxAxis = Math.max(straightRoadStartAxis, straightRoadEndAxis);
+
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+        shape.begin(ShapeRenderer.ShapeType.Line);
+        shape.setColor(new Color(1f, 1f, 1f, 0.95f));
+        for (int axis = minAxis; axis <= maxAxis; axis++) {
+            int x = straightRoadPreviewVertical ? straightRoadFixedX : axis;
+            int y = straightRoadPreviewVertical ? axis : straightRoadFixedY;
+            if (!map.isInBounds(x, y)) {
+                continue;
+            }
+            float sx = toScreenX(x, y);
+            float sy = toScreenY(x, y);
+            float hw = TILE_W / 2f;
+            float hh = TILE_H / 2f;
+            float by = sy + hh;
+            shape.line(sx, by + TILE_H, sx - hw, by + hh);
+            shape.line(sx - hw, by + hh, sx, by);
+            shape.line(sx, by, sx + hw, by + hh);
+            shape.line(sx + hw, by + hh, sx, by + TILE_H);
+        }
+        shape.end();
+        Gdx.gl.glDisable(GL20.GL_BLEND);
+
+        int count = 0;
+        for (int axis = minAxis; axis <= maxAxis; axis++) {
+            int x = straightRoadPreviewVertical ? straightRoadFixedX : axis;
+            int y = straightRoadPreviewVertical ? axis : straightRoadFixedY;
+            if (map.isInBounds(x, y)) {
+                count++;
+            }
+        }
+        if (count <= 0) {
+            return;
+        }
+        String label = "Length: " + count;
+        int endX = straightRoadPreviewVertical ? straightRoadFixedX : straightRoadEndAxis;
+        int endY = straightRoadPreviewVertical ? straightRoadEndAxis : straightRoadFixedY;
+        float sx = toScreenX(endX, endY);
+        float sy = toScreenY(endX, endY);
+        float labelX = sx + TILE_W * 0.4f;
+        float labelY = sy + TILE_H * 1.15f;
+
+        batch.begin();
+        batch.setProjectionMatrix(camera.combined);
+        font.setColor(Color.WHITE);
+        glyphLayout.setText(font, label);
+        font.draw(batch, label, labelX, labelY);
+        batch.end();
     }
 
     private void drawEdgeWalls(GameMap map) {
@@ -286,6 +376,7 @@ public class Renderer2D implements GameRenderer {
     public void dispose() {
         shape.dispose();
         batch.dispose();
+        font.dispose();
     }
 
     private static Color colorFor(TileType type) {

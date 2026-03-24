@@ -32,7 +32,7 @@ public final class DecorationMetadata {
      * so the visible pixels match the intended tile footprint.
      */
     public static float widthScale(String resourcePath) {
-        if (usesMeasuredHighwayFit(resourcePath)) {
+        if (usesMeasuredGroundFit(resourcePath)) {
             SpriteMetrics m = metricsFor(resourcePath);
             return 1f / m.opaqueWidthRatio;
         }
@@ -41,21 +41,23 @@ public final class DecorationMetadata {
 
     /** Per-asset Y offset to remove visual gaps with terrain plane. */
     public static float groundYOffset(String resourcePath, float drawHeight) {
-        if (usesMeasuredHighwayFit(resourcePath)) {
+        if (usesMeasuredGroundFit(resourcePath)) {
             SpriteMetrics m = metricsFor(resourcePath);
             return -drawHeight * m.bottomPaddingRatio;
         }
         return 0f;
     }
 
-    private static boolean usesMeasuredHighwayFit(String resourcePath) {
+    private static boolean usesMeasuredGroundFit(String resourcePath) {
         if (resourcePath == null) {
             return false;
         }
         String n = resourcePath.toLowerCase();
         return n.contains("highway-straight")
                 || n.contains("highway-top-left")
-                || n.contains("intersection");
+                || n.contains("intersection")
+                || n.contains("trafficlights")
+                || n.contains("traffic lights");
     }
 
     private static SpriteMetrics metricsFor(String resourcePath) {

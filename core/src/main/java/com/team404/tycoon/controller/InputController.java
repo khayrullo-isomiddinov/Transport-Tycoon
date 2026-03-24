@@ -62,7 +62,7 @@ public class InputController {
         if (state.canPlaceDecoration(map, dec)) {
             state.addDecoration(dec);
             if (shouldPaintFoundation(selectedAssetPath)) {
-                paintFootprint(map, dec, TileType.CITY);
+                paintFootprint(map, dec, foundationTypeFor(selectedAssetPath));
             }
         }
     }
@@ -94,6 +94,25 @@ public class InputController {
         String n = resourcePath.toLowerCase();
         return !n.contains("highway-straight")
                 && !n.contains("highway-top-left")
-                && !n.contains("intersection");
+                && !n.contains("intersection")
+                && !n.contains("trafficlights")
+                && !n.contains("traffic lights");
+    }
+
+    private static TileType foundationTypeFor(String resourcePath) {
+        if (resourcePath == null) {
+            return TileType.CITY;
+        }
+        String n = resourcePath.toLowerCase();
+        // Building-like assets look better on darker asphalt-style pads.
+        if (n.contains("building")
+                || n.contains("garage")
+                || n.contains("village")
+                || n.contains("teplitsa")
+                || n.contains("playground")
+                || n.contains("factory")) {
+            return TileType.ROAD;
+        }
+        return TileType.CITY;
     }
 }

@@ -22,7 +22,7 @@ public class AssetPaletteState {
     public AssetPaletteState(List<String> paths) {
         for (String path : paths) {
             String n = basename(path).toLowerCase();
-            if ("upblue.png".equals(n)) {
+            if ("upblue.png".equals(n) || "upbluearrow.png".equals(n)) {
                 continue;
             }
             resourcePaths.add(path);

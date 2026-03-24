@@ -9,12 +9,12 @@ import com.badlogic.gdx.Gdx;
  * origin at the <strong>top-left</strong> of the window client area, y increases downward.
  * This matches {@link com.badlogic.gdx.InputProcessor} coordinates on desktop.
  * <p>
- * Order from the top of the window down: asset strip (PNGs), then build-mode strip.
+ * Order from the top of the window down: asset strip (PNGs) only.
  */
 public final class UiChrome {
 
     public static final float ASSET_BAR_HEIGHT = 76f;
-    public static final float BUILD_BAR_HEIGHT = 40f;
+    public static final float BUILD_BAR_HEIGHT = 0f;
 
     private UiChrome() {
     }
@@ -30,7 +30,7 @@ public final class UiChrome {
                 && screenY >= 0 && screenY <= ASSET_BAR_HEIGHT;
     }
 
-    /** Strip under the asset bar: 1–4 tools. */
+    /** Legacy strip under the asset bar (disabled in sprite-only mode). */
     public static boolean isInBuildBar(float screenX, float screenY) {
         float w = Gdx.graphics.getWidth();
         return screenX >= 0 && screenX <= w

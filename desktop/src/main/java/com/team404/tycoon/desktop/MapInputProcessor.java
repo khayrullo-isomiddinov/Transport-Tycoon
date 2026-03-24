@@ -6,7 +6,6 @@ import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.math.Vector3;
 import com.team404.tycoon.controller.InputController;
 import com.team404.tycoon.desktop.assets.AssetPaletteState;
-import com.team404.tycoon.model.BuildMode;
 
 public class MapInputProcessor implements InputProcessor {
 
@@ -120,30 +119,7 @@ public class MapInputProcessor implements InputProcessor {
 
     @Override
     public boolean keyDown(int keycode) {
-        switch (keycode) {
-            case Input.Keys.NUM_1:
-                assetPaletteState.clearSelection();
-                inputController.setCurrentMode(BuildMode.ROAD);
-                return true;
-            case Input.Keys.NUM_2:
-                assetPaletteState.clearSelection();
-                inputController.setCurrentMode(BuildMode.WATER);
-                return true;
-            case Input.Keys.NUM_3:
-                assetPaletteState.clearSelection();
-                inputController.setCurrentMode(BuildMode.FOREST);
-                return true;
-            case Input.Keys.NUM_4:
-                assetPaletteState.clearSelection();
-                inputController.setCurrentMode(BuildMode.DEMOLISH);
-                return true;
-            case Input.Keys.TAB:
-                assetPaletteState.clearSelection();
-                inputController.cycleModeForward();
-                return true;
-            default:
-                return false;
-        }
+        return false;
     }
 
     @Override

@@ -135,8 +135,6 @@ public final class RandomMapGenerator {
 
     private static void paintSpriteDecorations(GameState state, GameMap map, Random rng) {
         // Use a handful of user sprites as startup world dressing.
-        placeAlongRoads(state, map, rng, "resources/highway-straight.png", 180, 0.68f);
-        placeAlongRoads(state, map, rng, "resources/highway-top-left.png", 120, 0.52f);
         placeAlongRoads(state, map, rng, "resources/intersection.png", 70, 0.38f);
 
         // Be generous with buildings in city-like regions.

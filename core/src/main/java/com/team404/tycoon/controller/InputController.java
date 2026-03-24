@@ -50,46 +50,29 @@ public class InputController {
     }
 
     public void onPrimaryClick(int tileX, int tileY) {
+        if (selectedAssetPath == null) {
+            return;
+        }
         GameState state = gameController.getGameState();
         GameMap map = state.getMap();
 
-        if (selectedAssetPath != null) {
-            int[] fp = DecorationRules.footprintForPath(selectedAssetPath);
-            PlacedDecoration dec = new PlacedDecoration(
-                    tileX, tileY, selectedAssetPath, fp[0], fp[1]);
-            if (state.canPlaceDecoration(map, dec)) {
-                state.addDecoration(dec);
-                if (shouldPaintFoundation(selectedAssetPath)) {
-                    paintFootprint(map, dec, TileType.CITY);
-                }
+        int[] fp = DecorationRules.footprintForPath(selectedAssetPath);
+        PlacedDecoration dec = new PlacedDecoration(
+                tileX, tileY, selectedAssetPath, fp[0], fp[1]);
+        if (state.canPlaceDecoration(map, dec)) {
+            state.addDecoration(dec);
+            if (shouldPaintFoundation(selectedAssetPath)) {
+                paintFootprint(map, dec, TileType.CITY);
             }
-            return;
-        }
-
-        if (currentMode == BuildMode.DEMOLISH) {
-            if (placementValidator.canDemolish(map, tileX, tileY)) {
-                map.getTile(tileX, tileY).setType(TileType.EMPTY);
-            }
-            return;
-        }
-
-        if (placementValidator.canBuild(map, tileX, tileY)) {
-            Tile tile = map.getTile(tileX, tileY);
-            tile.setType(currentMode.getTargetType());
         }
     }
 
     public void onSecondaryClick(int tileX, int tileY) {
-        GameState state = gameController.getGameState();
-        GameMap map = state.getMap();
-
-        if (state.removeDecorationAtTile(tileX, tileY)) {
+        if (selectedAssetPath == null) {
             return;
         }
-
-        if (placementValidator.canDemolish(map, tileX, tileY)) {
-            map.getTile(tileX, tileY).setType(TileType.EMPTY);
-        }
+        GameState state = gameController.getGameState();
+        state.removeDecorationAtTile(tileX, tileY);
     }
 
     private static void paintFootprint(GameMap map, PlacedDecoration decoration, TileType type) {

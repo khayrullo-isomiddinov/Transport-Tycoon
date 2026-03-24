@@ -10,7 +10,6 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.team404.tycoon.desktop.assets.AssetPaletteState;
 import com.team404.tycoon.desktop.assets.DecorationTextureCache;
-import com.team404.tycoon.model.BuildMode;
 
 public class HudRenderer {
 
@@ -31,7 +30,7 @@ public class HudRenderer {
         font.setColor(Color.WHITE);
     }
 
-    public void render(BuildMode currentMode, AssetPaletteState palette, DecorationTextureCache cache) {
+    public void render(AssetPaletteState palette, DecorationTextureCache cache) {
         float w = Gdx.graphics.getWidth();
         float h = Gdx.graphics.getHeight();
 
@@ -45,7 +44,6 @@ public class HudRenderer {
 
         batch.begin();
         drawAssetStrip(w, h, palette, cache);
-        drawBuildToolbarText(w, h, currentMode);
         drawControlsText(w, h, palette);
         batch.end();
 
@@ -112,31 +110,13 @@ public class HudRenderer {
         }
     }
 
-    private void drawBuildToolbarText(float w, float h, BuildMode currentMode) {
-        float barY = h - UiChrome.totalTopHeight();
-
-        BuildMode[] modes = BuildMode.values();
-        float xOffset = 16f;
-
-        for (int i = 0; i < modes.length; i++) {
-            BuildMode mode = modes[i];
-            String label = "[" + (i + 1) + "] " + mode.getLabel();
-            font.setColor(mode == currentMode ? Color.YELLOW : Color.LIGHT_GRAY);
-            font.draw(batch, label, xOffset, barY + 26f);
-            xOffset += 120f;
-        }
-
-        font.setColor(Color.WHITE);
-        font.draw(batch, "Tool: " + currentMode.getLabel(), w - 200f, barY + 26f);
-    }
-
     private void drawControlsText(float w, float h, AssetPaletteState palette) {
         font.setColor(new Color(1f, 1f, 1f, 0.55f));
         String sel = palette.getSelectedPath() == null
                 ? "(pick PNG above)"
                 : palette.getSelectedPath().replace("resources/", "");
         font.draw(batch,
-                "WASD: pan | Ctrl+scroll: zoom | scroll: pan | LMB: place | RMB: remove decal / demolish | PNG: "
+                "WASD: pan | Ctrl+scroll: zoom | scroll: pan | pick sprite above then LMB place / RMB remove | PNG: "
                         + sel,
                 10f, 18f);
         font.setColor(Color.WHITE);

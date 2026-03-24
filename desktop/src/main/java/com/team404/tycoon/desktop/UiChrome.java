@@ -15,6 +15,11 @@ public final class UiChrome {
 
     public static final float ASSET_BAR_HEIGHT = 76f;
     public static final float BUILD_BAR_HEIGHT = 0f;
+    public static final float ASSET_PAD = 8f;
+    public static final float THUMB = 52f;
+    public static final float ASSET_GAP = 6f;
+    public static final float ARROW_SIZE = 26f;
+    public static final float ARROW_GAP = 8f;
 
     private UiChrome() {
     }
@@ -41,5 +46,43 @@ public final class UiChrome {
     public static boolean isInTopChrome(float screenX, float screenY) {
         float w = Gdx.graphics.getWidth();
         return screenX >= 0 && screenX <= w && screenY >= 0 && screenY <= totalTopHeight();
+    }
+
+    public static float assetContentLeftX() {
+        return ASSET_PAD + ARROW_SIZE + ARROW_GAP;
+    }
+
+    public static float assetContentRightX(float screenWidth) {
+        return screenWidth - ASSET_PAD - ARROW_SIZE - ARROW_GAP;
+    }
+
+    public static float assetContentWidth(float screenWidth) {
+        return Math.max(0f, assetContentRightX(screenWidth) - assetContentLeftX());
+    }
+
+    public static boolean isInAssetLeftArrow(float screenX, float screenY) {
+        if (!isInAssetBar(screenX, screenY)) {
+            return false;
+        }
+        float top = (ASSET_BAR_HEIGHT - ARROW_SIZE) * 0.5f;
+        float bottom = top + ARROW_SIZE;
+        return screenX >= ASSET_PAD
+                && screenX <= ASSET_PAD + ARROW_SIZE
+                && screenY >= top
+                && screenY <= bottom;
+    }
+
+    public static boolean isInAssetRightArrow(float screenX, float screenY) {
+        if (!isInAssetBar(screenX, screenY)) {
+            return false;
+        }
+        float w = Gdx.graphics.getWidth();
+        float left = w - ASSET_PAD - ARROW_SIZE;
+        float top = (ASSET_BAR_HEIGHT - ARROW_SIZE) * 0.5f;
+        float bottom = top + ARROW_SIZE;
+        return screenX >= left
+                && screenX <= left + ARROW_SIZE
+                && screenY >= top
+                && screenY <= bottom;
     }
 }

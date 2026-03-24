@@ -10,9 +10,6 @@ import com.team404.tycoon.desktop.assets.AssetPaletteState;
  */
 public class AssetPaletteInputProcessor implements InputProcessor {
 
-    private static final float PAD_LEFT = 8f;
-    private static final float THUMB = 52f;
-    private static final float GAP = 6f;
     private static final float SCROLL_STEP = 48f;
 
     private final AssetPaletteState palette;
@@ -26,7 +23,28 @@ public class AssetPaletteInputProcessor implements InputProcessor {
     }
 
     private float cellStep() {
-        return THUMB + GAP;
+        return UiChrome.THUMB + UiChrome.ASSET_GAP;
+    }
+
+    private float maxScrollX() {
+        float visible = UiChrome.assetContentWidth(com.badlogic.gdx.Gdx.graphics.getWidth());
+        return palette.maxScrollX(visible, UiChrome.THUMB, UiChrome.ASSET_GAP);
+    }
+
+    private void updateHover(int screenX, int screenY) {
+        if (!UiChrome.isInAssetBar(screenX, screenY)
+                || UiChrome.isInAssetLeftArrow(screenX, screenY)
+                || UiChrome.isInAssetRightArrow(screenX, screenY)) {
+            palette.setHoveredPath(null);
+            return;
+        }
+        float localX = screenX + palette.getScrollX() - UiChrome.assetContentLeftX();
+        int idx = (int) Math.floor(localX / cellStep());
+        if (idx >= 0 && idx < palette.getResourcePaths().size()) {
+            palette.setHoveredPath(palette.getResourcePaths().get(idx));
+        } else {
+            palette.setHoveredPath(null);
+        }
     }
 
     @Override
@@ -34,9 +52,20 @@ public class AssetPaletteInputProcessor implements InputProcessor {
         if (!UiChrome.isInAssetBar(screenX, screenY)) {
             return false;
         }
+        if (UiChrome.isInAssetLeftArrow(screenX, screenY)) {
+            palette.addScroll(-SCROLL_STEP * 2f, maxScrollX());
+            palette.setHoveredPath(null);
+            return true;
+        }
+        if (UiChrome.isInAssetRightArrow(screenX, screenY)) {
+            palette.addScroll(SCROLL_STEP * 2f, maxScrollX());
+            palette.setHoveredPath(null);
+            return true;
+        }
         dragStartX = screenX;
         dragStartScroll = palette.getScrollX();
-        float localX = screenX + palette.getScrollX() - PAD_LEFT;
+        updateHover(screenX, screenY);
+        float localX = screenX + palette.getScrollX() - UiChrome.assetContentLeftX();
         int idx = (int) Math.floor(localX / cellStep());
         if (idx >= 0 && idx < palette.getResourcePaths().size()) {
             String path = palette.getResourcePaths().get(idx);
@@ -53,7 +82,8 @@ public class AssetPaletteInputProcessor implements InputProcessor {
             return false;
         }
         float dx = screenX - dragStartX;
-        palette.setScrollX(dragStartScroll - dx);
+        palette.setScrollX(dragStartScroll - dx, maxScrollX());
+        updateHover(screenX, screenY);
         return UiChrome.isInAssetBar(screenX, screenY);
     }
 
@@ -63,7 +93,7 @@ public class AssetPaletteInputProcessor implements InputProcessor {
         float my = com.badlogic.gdx.Gdx.input.getY();
         if (UiChrome.isInAssetBar(mx, my)) {
             // Negate vertical wheel / trackpad delta so the strip moves the intuitive way for a horizontal menu.
-            palette.addScroll(-amountY * SCROLL_STEP);
+            palette.addScroll(-amountY * SCROLL_STEP, maxScrollX());
             return true;
         }
         return false;
@@ -91,16 +121,19 @@ public class AssetPaletteInputProcessor implements InputProcessor {
 
     @Override
     public boolean touchUp(int screenX, int screenY, int pointer, int button) {
+        updateHover(screenX, screenY);
         return false;
     }
 
     @Override
     public boolean mouseMoved(int screenX, int screenY) {
+        updateHover(screenX, screenY);
         return false;
     }
 
     @Override
     public boolean touchCancelled(int screenX, int screenY, int pointer, int button) {
+        palette.setHoveredPath(null);
         return false;
     }
 }

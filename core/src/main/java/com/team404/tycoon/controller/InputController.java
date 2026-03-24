@@ -96,7 +96,8 @@ public class InputController {
                 && !n.contains("highway-top-left")
                 && !n.contains("intersection")
                 && !n.contains("trafficlights")
-                && !n.contains("traffic lights");
+                && !n.contains("traffic lights")
+                && !n.contains("tree");
     }
 
     private static TileType foundationTypeFor(String resourcePath) {

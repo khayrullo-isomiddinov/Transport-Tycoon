@@ -57,7 +57,12 @@ public final class DecorationMetadata {
                 || n.contains("highway-top-left")
                 || n.contains("intersection")
                 || n.contains("trafficlights")
-                || n.contains("traffic lights");
+                || n.contains("traffic lights")
+                || n.contains("tree")
+                || n.contains("villagehousewithgrass")
+                || n.contains("villagehousewithgrass2")
+                || n.contains("vllagehousewithgrass")
+                || n.contains("villagehouseiwthgrass2");
     }
 
     private static SpriteMetrics metricsFor(String resourcePath) {

@@ -17,11 +17,14 @@ public final class RandomMapGenerator {
         GameMap map = state.getMap();
         map.fill(TileType.EMPTY);
         state.clearTowns();
+        state.clearTransportState();
 
         paintWater(map, rng);
         paintForests(map, rng);
         generateTowns(state, map, rng);
         sprinkleNatureDecor(state, map, rng);
+        state.bootstrapStarterTransport();
+        state.seedRandomDemand(2, 6, rng);
     }
 
     private static void paintWater(GameMap map, Random rng) {

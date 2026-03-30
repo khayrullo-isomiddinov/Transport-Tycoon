@@ -11,6 +11,7 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.team404.tycoon.desktop.assets.AssetPaletteState;
 import com.team404.tycoon.desktop.assets.DecorationTextureCache;
+import com.team404.tycoon.model.GameState;
 
 public class HudRenderer {
 
@@ -29,7 +30,7 @@ public class HudRenderer {
         font.setColor(Color.WHITE);
     }
 
-    public void render(AssetPaletteState palette, DecorationTextureCache cache) {
+    public void render(AssetPaletteState palette, DecorationTextureCache cache, GameState state) {
         float w = Gdx.graphics.getWidth();
         float h = Gdx.graphics.getHeight();
         float visible = UiChrome.assetContentWidth(w);
@@ -47,7 +48,7 @@ public class HudRenderer {
 
         batch.begin();
         drawAssetStrip(w, h, palette, cache);
-        drawControlsText(w, h, palette);
+        drawControlsText(w, h, palette, state);
         batch.end();
 
         drawAssetSelectionOutline(w, h, palette);
@@ -199,7 +200,7 @@ public class HudRenderer {
         shape.end();
     }
 
-    private void drawControlsText(float w, float h, AssetPaletteState palette) {
+    private void drawControlsText(float w, float h, AssetPaletteState palette, GameState state) {
         font.setColor(new Color(1f, 1f, 1f, 0.55f));
         String sel = palette.getSelectedPath() == null
                 ? "(pick PNG above)"
@@ -208,6 +209,12 @@ public class HudRenderer {
                 "WASD: pan | Ctrl+scroll: zoom | scroll: pan | pick sprite above then LMB place / RMB remove | PNG: "
                         + sel,
                 10f, 18f);
+        String transportLine = "Vehicles: " + state.getVehicles().size()
+                + " | Pending demand: " + state.getTransportDemand().size()
+                + " | Balance: " + state.getBalance()
+                + " | Income: " + state.getLifetimeIncome()
+                + " | Expenses: " + state.getLifetimeExpenses();
+        font.draw(batch, transportLine, 10f, 38f);
         font.setColor(Color.WHITE);
     }
 

@@ -16,9 +16,13 @@ import com.team404.tycoon.desktop.assets.DecorationTextureCache;
 import com.team404.tycoon.model.GameMap;
 import com.team404.tycoon.model.GameState;
 import com.team404.tycoon.model.PlacedDecoration;
+import com.team404.tycoon.model.Route;
+import com.team404.tycoon.model.RouteStop;
 import com.team404.tycoon.model.Tile;
 import com.team404.tycoon.model.TileType;
 import com.team404.tycoon.model.Town;
+import com.team404.tycoon.model.TransportContentType;
+import com.team404.tycoon.model.Vehicle;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -105,9 +109,46 @@ public class Renderer2D implements GameRenderer {
         drawTileSurface(map);
         drawGridLines(map);
         drawDecorations(state);
+        drawVehicles(state);
         drawTownNames(state);
         drawBuildPreview(map);
         drawHoverHighlight(map);
+    }
+
+    private void drawVehicles(GameState state) {
+        if (state.getVehicles().isEmpty()) {
+            return;
+        }
+        shape.begin(ShapeRenderer.ShapeType.Filled);
+        for (Vehicle vehicle : state.getVehicles()) {
+            Route route = state.findRouteById(vehicle.getRouteId()).orElse(null);
+            if (route == null || route.getStops().size() < 2) {
+                continue;
+            }
+            int stopCount = route.getStops().size();
+            int fromIndex = Math.floorMod(vehicle.getCurrentStopIndex(), stopCount);
+            int toIndex = (fromIndex + 1) % stopCount;
+            RouteStop fromStop = route.getStops().get(fromIndex);
+            RouteStop toStop = route.getStops().get(toIndex);
+            Town fromTown = state.getTown(fromStop.getTownIndex()).orElse(null);
+            Town toTown = state.getTown(toStop.getTownIndex()).orElse(null);
+            if (fromTown == null || toTown == null) {
+                continue;
+            }
+
+            float dx = Math.abs(fromTown.getCenterX() - toTown.getCenterX());
+            float dy = Math.abs(fromTown.getCenterY() - toTown.getCenterY());
+            float legDistance = Math.max(1f, dx + dy);
+            float t = Math.min(1f, vehicle.getLegProgressTiles() / legDistance);
+            float tileX = fromTown.getCenterX() + (toTown.getCenterX() - fromTown.getCenterX()) * t;
+            float tileY = fromTown.getCenterY() + (toTown.getCenterY() - fromTown.getCenterY()) * t;
+
+            float sx = toScreenX(tileX, tileY);
+            float sy = toScreenY(tileX, tileY) + TILE_H * 1.35f;
+            shape.setColor(vehicleColor(vehicle));
+            shape.circle(sx, sy, 6f);
+        }
+        shape.end();
     }
 
     private void drawTownNames(GameState state) {
@@ -365,6 +406,14 @@ public class Renderer2D implements GameRenderer {
         return (tileX + tileY) * (TILE_H / 2f);
     }
 
+    private static float toScreenX(float tileX, float tileY) {
+        return (tileX - tileY) * (TILE_W / 2f);
+    }
+
+    private static float toScreenY(float tileX, float tileY) {
+        return (tileX + tileY) * (TILE_H / 2f);
+    }
+
     /**
      * Inverse of {@link #toScreenX} / {@link #toScreenY} at the tile origin (same space as unproject).
      */
@@ -456,5 +505,20 @@ public class Renderer2D implements GameRenderer {
     public void pan(float amountX, float amountY) {
         float panSpeed = 32f * camera.zoom;
         camera.translate(amountX * panSpeed, -amountY * panSpeed);
+    }
+
+    private Color vehicleColor(Vehicle vehicle) {
+        boolean supportsPassengers = vehicle.getType().supports(TransportContentType.PASSENGERS);
+        boolean supportsGoods = vehicle.getType().supports(TransportContentType.GOODS);
+        if (supportsPassengers && supportsGoods) {
+            return new Color(0.92f, 0.72f, 0.25f, 1f);
+        }
+        if (supportsPassengers) {
+            return new Color(0.20f, 0.82f, 1f, 1f);
+        }
+        if (supportsGoods) {
+            return new Color(1f, 0.55f, 0.20f, 1f);
+        }
+        return new Color(0.95f, 0.95f, 0.95f, 1f);
     }
 }

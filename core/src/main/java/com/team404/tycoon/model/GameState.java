@@ -217,12 +217,12 @@ public class GameState {
         VehicleType bus = new VehicleType(
                 "Starter Bus",
                 14,
-                8.0f,
+                4.0f,
                 Collections.singleton(TransportContentType.PASSENGERS));
         VehicleType truck = new VehicleType(
                 "Starter Truck",
                 18,
-                7.0f,
+                3.6f,
                 Collections.singleton(TransportContentType.GOODS));
 
         addVehicle(new Vehicle("starter-bus-1", "starter-loop", bus, 0));
@@ -362,6 +362,39 @@ public class GameState {
             }
         }
         return false;
+    }
+
+    public boolean isDriveableRoadTile(int x, int y) {
+        if (!map.isInBounds(x, y)) {
+            return false;
+        }
+
+        boolean baseRoad = map.getTile(x, y).getType() == TileType.ROAD;
+        boolean hasRoadDecoration = false;
+
+        for (PlacedDecoration d : decorations) {
+            if (!d.occupiesTile(x, y)) {
+                continue;
+            }
+            String n = d.getResourcePath().toLowerCase();
+            if (isRoadDecorationResourcePath(n)) {
+                hasRoadDecoration = true;
+                continue;
+            }
+            // Any other sprite sitting on top of a tile blocks vehicles from driving through it.
+            return false;
+        }
+
+        return baseRoad || hasRoadDecoration;
+    }
+
+    private static boolean isRoadDecorationResourcePath(String lowerResourcePath) {
+        return lowerResourcePath.contains("highway")
+                || lowerResourcePath.contains("intersection")
+                || lowerResourcePath.contains("trafficlights")
+                || lowerResourcePath.contains("traffic lights")
+                || lowerResourcePath.contains("traffic")
+                || lowerResourcePath.contains("garage");
     }
 
     private boolean isRoadTile(int x, int y) {

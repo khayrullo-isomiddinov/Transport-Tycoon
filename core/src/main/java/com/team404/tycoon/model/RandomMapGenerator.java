@@ -22,6 +22,7 @@ public final class RandomMapGenerator {
         paintWater(map, rng);
         paintForests(map, rng);
         generateTowns(state, map, rng);
+        connectTownRoadNetwork(state, map, rng);
         sprinkleNatureDecor(state, map, rng);
         state.bootstrapStarterTransport();
         state.seedRandomDemand(2, 6, rng);
@@ -94,13 +95,62 @@ public final class RandomMapGenerator {
         for (int i = 0; i < townCount; i++) {
             int cx = 10 + rng.nextInt(Math.max(1, map.getWidth() - 20));
             int cy = 10 + rng.nextInt(Math.max(1, map.getHeight() - 20));
+            int[] relocated = relocateOffWater(map, cx, cy, 8);
+            cx = relocated[0];
+            cy = relocated[1];
             int half = 3 + rng.nextInt(3); // smaller towns: roughly 7..11
             int block = 2; // cleaner, denser roads
             layTownRoadGrid(map, rng, cx, cy, half, block);
+            // Ensure the "town center" is always on land and driveable.
+            paintRoadTile(map, cx, cy);
             placeTownBuildings(state, map, rng, cx, cy, half);
             decorateTownRoadTiles(state, map, rng, cx, cy, half);
             state.addTown(new Town(generateTownName(rng), cx, cy));
         }
+    }
+
+    private static void connectTownRoadNetwork(GameState state, GameMap map, Random rng) {
+        List<Town> towns = state.getTowns();
+        if (towns.size() < 2) {
+            return;
+        }
+        for (int i = 0; i < towns.size() - 1; i++) {
+            Town a = towns.get(i);
+            Town b = towns.get(i + 1);
+            carveWobblyRoad(map, rng, a.getCenterX(), a.getCenterY(), b.getCenterX(), b.getCenterY(), 5);
+        }
+        if (towns.size() > 2) {
+            Town first = towns.get(0);
+            Town last = towns.get(towns.size() - 1);
+            carveWobblyRoad(map, rng, first.getCenterX(), first.getCenterY(), last.getCenterX(), last.getCenterY(), 6);
+        }
+    }
+
+    private static int[] relocateOffWater(GameMap map, int cx, int cy, int maxRadius) {
+        if (map.isInBounds(cx, cy) && map.getTile(cx, cy).getType() != TileType.WATER) {
+            return new int[]{cx, cy};
+        }
+        for (int radius = 1; radius <= maxRadius; radius++) {
+            for (int dy = -radius; dy <= radius; dy++) {
+                for (int dx = -radius; dx <= radius; dx++) {
+                    if (Math.abs(dx) + Math.abs(dy) > radius) {
+                        continue;
+                    }
+                    int x = cx + dx;
+                    int y = cy + dy;
+                    if (!map.isInBounds(x, y)) {
+                        continue;
+                    }
+                    if (map.getTile(x, y).getType() != TileType.WATER) {
+                        return new int[]{x, y};
+                    }
+                }
+            }
+        }
+        // Fallback: clamp inside bounds; later town logic will avoid water where possible.
+        int x = Math.max(0, Math.min(map.getWidth() - 1, cx));
+        int y = Math.max(0, Math.min(map.getHeight() - 1, cy));
+        return new int[]{x, y};
     }
 
     private static void layTownRoadGrid(GameMap map, Random rng, int cx, int cy, int half, int blockSize) {

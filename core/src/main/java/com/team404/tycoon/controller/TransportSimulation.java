@@ -1,6 +1,7 @@
 package com.team404.tycoon.controller;
 
 import com.team404.tycoon.model.GameState;
+import com.team404.tycoon.model.RoadPathfinder;
 import com.team404.tycoon.model.Route;
 import com.team404.tycoon.model.RouteStop;
 import com.team404.tycoon.model.Shipment;
@@ -16,7 +17,9 @@ import java.util.List;
  * Advances vehicles over routes and processes loading/unloading.
  */
 public final class TransportSimulation {
-    private static final float MIN_TRAVEL_DISTANCE = 1f;
+    static final float MIN_TRAVEL_DISTANCE = 1f;
+    static final float MAINTENANCE_INTERVAL_SECONDS = 120f;
+    private static final float GLOBAL_VEHICLE_SPEED_MULTIPLIER = 0.5f;
 
     private TransportSimulation() {
     }
@@ -36,8 +39,10 @@ public final class TransportSimulation {
                 vehicle.setCurrentStopIndex(0);
             }
             processArrival(state, route, vehicle, vehicle.getCurrentStopIndex());
-            float movedTiles = vehicle.getType().getSpeedTilesPerSecond() * deltaSeconds;
-            if (mustStopForRedLight(state, route, vehicle)) {
+            float movedTiles = vehicle.getType().getSpeedTilesPerSecond()
+                    * GLOBAL_VEHICLE_SPEED_MULTIPLIER
+                    * deltaSeconds;
+            if (mustStopForMissingRoadConnection(state, route, vehicle) || mustStopForRedLight(state, route, vehicle)) {
                 movedTiles = 0f;
             }
             processMovement(state, route, vehicle, movedTiles);
@@ -67,9 +72,11 @@ public final class TransportSimulation {
         if (fromTown == null || toTown == null) {
             return MIN_TRAVEL_DISTANCE;
         }
-        int dx = Math.abs(fromTown.getCenterX() - toTown.getCenterX());
-        int dy = Math.abs(fromTown.getCenterY() - toTown.getCenterY());
-        return Math.max(MIN_TRAVEL_DISTANCE, dx + dy);
+        List<int[]> path = RoadPathfinder.findRoadPath(state, fromTown, toTown, 6);
+        if (path.size() < 2) {
+            return MIN_TRAVEL_DISTANCE;
+        }
+        return Math.max(MIN_TRAVEL_DISTANCE, path.size() - 1);
     }
 
     private static void processArrival(GameState state, Route route, Vehicle vehicle, int arrivedStopIndex) {
@@ -131,8 +138,7 @@ public final class TransportSimulation {
     }
 
     private static void processMaintenance(GameState state, int townIndex, Vehicle vehicle) {
-        final float maintenanceIntervalSeconds = 120f;
-        if (!vehicle.isMaintenanceDue(maintenanceIntervalSeconds)) {
+        if (!vehicle.isMaintenanceDue(MAINTENANCE_INTERVAL_SECONDS)) {
             return;
         }
         Town town = state.getTown(townIndex).orElse(null);
@@ -157,26 +163,61 @@ public final class TransportSimulation {
         if (fromTown == null || toTown == null) {
             return false;
         }
-        boolean horizontalMovement = Math.abs(toTown.getCenterX() - fromTown.getCenterX())
+        boolean horizontal = Math.abs(toTown.getCenterX() - fromTown.getCenterX())
                 >= Math.abs(toTown.getCenterY() - fromTown.getCenterY());
-        boolean horizontalGreen = isHorizontalGreen(state);
-        if ((horizontalMovement && horizontalGreen) || (!horizontalMovement && !horizontalGreen)) {
-            return false;
-        }
+
+        float ax = fromTown.getCenterX();
+        float ay = fromTown.getCenterY();
+        float bx = toTown.getCenterX();
+        float by = toTown.getCenterY();
+        float abLen2 = (bx - ax) * (bx - ax) + (by - ay) * (by - ay);
+        float segLen = (float) Math.sqrt(abLen2);
+        float vehicleT = (segLen > 0f) ? Math.min(1f, vehicle.getLegProgressTiles() / segLen) : 0f;
+
+        // Find only the nearest traffic light *ahead* of the vehicle on this leg.
+        int[] nextLight = null;
+        float nextLightT = Float.MAX_VALUE;
         for (int[] light : state.getTrafficLightTiles()) {
-            if (isNearLine(light[0], light[1], fromTown, toTown)) {
-                return true;
+            if (!isNearLine(light[0], light[1], fromTown, toTown)) {
+                continue;
+            }
+            float lightT = (abLen2 > 0f)
+                    ? Math.max(0f, Math.min(1f,
+                            ((light[0] - ax) * (bx - ax) + (light[1] - ay) * (by - ay)) / abLen2))
+                    : 0f;
+            if (lightT >= vehicleT && lightT < nextLightT) {
+                nextLightT = lightT;
+                nextLight = light;
             }
         }
-        return false;
+
+        return nextLight != null && !isLightGreenForDirection(state, nextLight[0], nextLight[1], horizontal);
     }
 
-    private static boolean isHorizontalGreen(GameState state) {
+    private static boolean mustStopForMissingRoadConnection(GameState state, Route route, Vehicle vehicle) {
+        int stopCount = route.getStopCount();
+        int fromIndex = vehicle.getCurrentStopIndex() % stopCount;
+        int toIndex = (fromIndex + 1) % stopCount;
+        Town fromTown = state.getTown(route.getStops().get(fromIndex).getTownIndex()).orElse(null);
+        Town toTown = state.getTown(route.getStops().get(toIndex).getTownIndex()).orElse(null);
+        if (fromTown == null || toTown == null) {
+            return false;
+        }
+        List<int[]> path = RoadPathfinder.findRoadPath(state, fromTown, toTown, 6);
+        return path.size() < 2;
+    }
+
+    /**
+     * Each traffic light gets a deterministic phase offset derived from its tile position,
+     * so intersections cycle independently rather than all switching at the same instant.
+     */
+    private static boolean isLightGreenForDirection(GameState state, int lx, int ly, boolean horizontal) {
         float h = state.getTrafficLightHorizontalGreenSeconds();
         float v = state.getTrafficLightVerticalGreenSeconds();
         float cycle = h + v;
-        float t = state.getSimulationTimeSeconds() % cycle;
-        return t < h;
+        float phaseOffset = ((lx * 7 + ly * 13) & 0xFF) / 256f * cycle;
+        float t = (state.getSimulationTimeSeconds() + phaseOffset) % cycle;
+        return horizontal == (t < h);
     }
 
     private static boolean isNearLine(int lx, int ly, Town fromTown, Town toTown) {
@@ -202,4 +243,5 @@ public final class TransportSimulation {
         float dy = py - cy;
         return dx * dx + dy * dy <= 4.0f;
     }
+
 }

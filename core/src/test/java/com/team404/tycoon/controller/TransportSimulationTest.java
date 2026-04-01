@@ -40,6 +40,7 @@ class TransportSimulationTest {
         GameState state = new GameState(32, 32);
         state.addTown(new Town("Alpha", 4, 4));
         state.addTown(new Town("Beta", 20, 4));
+        paintHorizontalRoad(state, 4, 20, 4);
         state.addRoute(new Route("r-1", List.of(new RouteStop(0), new RouteStop(1))));
 
         VehicleType mixedBus = new VehicleType(
@@ -53,7 +54,7 @@ class TransportSimulationTest {
         state.addTransportDemand(new TransportDemand(0, 1, TransportContentType.PASSENGERS, 4, 20));
         state.addTransportDemand(new TransportDemand(0, 1, TransportContentType.GOODS, 3, 30));
 
-        new GameController(state).update(2.0f);
+        new GameController(state).update(4.0f);
 
         assertTrue(state.getTransportDemand().isEmpty(), "Demand should be fully loaded and delivered");
         assertTrue(vehicle.getLoadedShipments().isEmpty(), "Vehicle should unload at destination");
@@ -67,6 +68,7 @@ class TransportSimulationTest {
         state.addTown(new Town("A", 1, 1));
         state.addTown(new Town("B", 10, 1));
         state.addTown(new Town("C", 20, 1));
+        paintHorizontalRoad(state, 1, 10, 1);
         state.addRoute(new Route("r-2", List.of(new RouteStop(0), new RouteStop(1))));
 
         VehicleType passengerOnly = new VehicleType(
@@ -105,6 +107,100 @@ class TransportSimulationTest {
     }
 
     @Test
+    void vehicleStopsWhenLegCrossesWater() {
+        GameState state = new GameState(32, 32);
+        state.addTown(new Town("A", 2, 2));
+        state.addTown(new Town("B", 10, 2));
+        state.addRoute(new Route("r-water", List.of(new RouteStop(0), new RouteStop(1))));
+        state.getMap().getTile(6, 2).setType(TileType.WATER);
+
+        VehicleType bus = new VehicleType("Bus", 10, 10f, EnumSet.of(TransportContentType.PASSENGERS));
+        Vehicle vehicle = new Vehicle("v-water", "r-water", bus, 0);
+        state.addVehicle(vehicle);
+
+        new GameController(state).update(2.0f);
+
+        assertEquals(0f, vehicle.getLegProgressTiles(), 0.0001f, "Vehicle should stop before water-crossing leg");
+    }
+
+    @Test
+    void vehicleStopsWithoutRoadConnectionEvenOnLand() {
+        GameState state = new GameState(32, 32);
+        state.addTown(new Town("A", 2, 2));
+        state.addTown(new Town("B", 10, 2));
+        state.addRoute(new Route("r-land", List.of(new RouteStop(0), new RouteStop(1))));
+
+        VehicleType bus = new VehicleType("Bus", 10, 10f, EnumSet.of(TransportContentType.PASSENGERS));
+        Vehicle vehicle = new Vehicle("v-land", "r-land", bus, 0);
+        state.addVehicle(vehicle);
+
+        new GameController(state).update(2.0f);
+
+        assertEquals(0f, vehicle.getLegProgressTiles(), 0.0001f, "Vehicle should stop when no drivable road path exists");
+    }
+
+    @Test
+    void highwayIntersectionAndTrafficLightsDecorationsCountAsRoad() {
+        GameState state = new GameState(32, 32);
+        state.addTown(new Town("A", 2, 2));
+        state.addTown(new Town("B", 6, 2));
+        state.addRoute(new Route("r-decor-road", List.of(new RouteStop(0), new RouteStop(1))));
+        state.addDecoration(new PlacedDecoration(2, 2, "resources/highway-straight.png", 1, 1));
+        state.addDecoration(new PlacedDecoration(3, 2, "resources/intersection.png", 1, 1));
+        state.addDecoration(new PlacedDecoration(4, 2, "resources/trafficlights.png", 1, 1));
+        state.addDecoration(new PlacedDecoration(5, 2, "resources/highway-top-left.png", 1, 1));
+        state.addDecoration(new PlacedDecoration(6, 2, "resources/highway-straight.png", 1, 1));
+
+        VehicleType bus = new VehicleType("Bus", 10, 10f, EnumSet.of(TransportContentType.PASSENGERS));
+        Vehicle vehicle = new Vehicle("v-decor-road", "r-decor-road", bus, 0);
+        state.addVehicle(vehicle);
+
+        new GameController(state).update(1.0f);
+
+        assertTrue(vehicle.getLegProgressTiles() > 0f, "Vehicle should move on recognized road decorations");
+    }
+
+    @Test
+    void highwayAndTrafficGenericPngNamesCountAsRoad() {
+        GameState state = new GameState(32, 32);
+        state.addTown(new Town("A", 2, 2));
+        state.addTown(new Town("B", 5, 2));
+        state.addRoute(new Route("r-generic-road", List.of(new RouteStop(0), new RouteStop(1))));
+        state.addDecoration(new PlacedDecoration(2, 2, "resources/highway.png", 1, 1));
+        state.addDecoration(new PlacedDecoration(3, 2, "resources/intersection.png", 1, 1));
+        state.addDecoration(new PlacedDecoration(4, 2, "resources/traffic.png", 1, 1));
+        state.addDecoration(new PlacedDecoration(5, 2, "resources/highway.png", 1, 1));
+
+        VehicleType bus = new VehicleType("Bus", 10, 10f, EnumSet.of(TransportContentType.PASSENGERS));
+        Vehicle vehicle = new Vehicle("v-generic-road", "r-generic-road", bus, 0);
+        state.addVehicle(vehicle);
+
+        new GameController(state).update(1.0f);
+
+        assertTrue(vehicle.getLegProgressTiles() > 0f, "Vehicle should move on highway.png/intersection/traffic.png");
+    }
+
+    @Test
+    void vehicleDoesNotDriveThroughNonRoadDecorationOnRoadTile() {
+        GameState state = new GameState(32, 32);
+        state.addTown(new Town("A", 2, 2));
+        state.addTown(new Town("B", 10, 2));
+        paintHorizontalRoad(state, 2, 10, 2);
+        state.addRoute(new Route("r-block", List.of(new RouteStop(0), new RouteStop(1))));
+
+        // Put a blocking sprite directly on the road line.
+        state.addDecoration(new PlacedDecoration(5, 2, "resources/tree.png", 1, 1));
+
+        VehicleType bus = new VehicleType("Bus", 10, 10f, EnumSet.of(TransportContentType.PASSENGERS));
+        Vehicle vehicle = new Vehicle("v-block", "r-block", bus, 0);
+        state.addVehicle(vehicle);
+
+        new GameController(state).update(1.0f);
+
+        assertEquals(0f, vehicle.getLegProgressTiles(), 0.0001f, "Vehicle should not move onto a blocked road tile");
+    }
+
+    @Test
     void purchaseAndSellVehicleViaGarageControllerApis() {
         GameState state = new GameState(32, 32);
         state.setBalance(500L);
@@ -128,5 +224,13 @@ class TransportSimulationTest {
         assertEquals(375L, state.getBalance(), "Selling should add resale income");
 
         assertFalse(controller.sellVehicle("missing-id"));
+    }
+
+    private static void paintHorizontalRoad(GameState state, int fromX, int toX, int y) {
+        int minX = Math.min(fromX, toX);
+        int maxX = Math.max(fromX, toX);
+        for (int x = minX; x <= maxX; x++) {
+            state.getMap().getTile(x, y).setType(TileType.ROAD);
+        }
     }
 }

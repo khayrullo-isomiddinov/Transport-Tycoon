@@ -56,3 +56,6 @@ $RECYCLE.BIN/
 # Dependencies
 # ===================================
 node_modules/
+.claude/
+CLAUDE.md
+.claude/settings.local.json

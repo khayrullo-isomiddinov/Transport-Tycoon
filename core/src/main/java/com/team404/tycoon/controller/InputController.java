@@ -5,7 +5,7 @@ import com.team404.tycoon.model.DecorationRules;
 import com.team404.tycoon.model.GameMap;
 import com.team404.tycoon.model.GameState;
 import com.team404.tycoon.model.PlacedDecoration;
-import com.team404.tycoon.model.Tile;
+import com.team404.tycoon.model.TransportContentType;
 import com.team404.tycoon.model.TileType;
 
 public class InputController {
@@ -15,6 +15,7 @@ public class InputController {
     private BuildMode currentMode = BuildMode.ROAD;
     /** When set, LMB places this PNG decoration instead of painting terrain. */
     private String selectedAssetPath;
+    private TransportContentType garagePurchaseContentType = TransportContentType.GOODS;
 
     public InputController(GameController gameController) {
         this.gameController = gameController;
@@ -51,6 +52,7 @@ public class InputController {
 
     public void onPrimaryClick(int tileX, int tileY) {
         if (selectedAssetPath == null) {
+            gameController.purchaseVehicleAtGarage(tileX, tileY, garagePurchaseContentType);
             return;
         }
         GameState state = gameController.getGameState();
@@ -69,10 +71,31 @@ public class InputController {
 
     public void onSecondaryClick(int tileX, int tileY) {
         if (selectedAssetPath == null) {
+            gameController.sellOldestVehicleAtGarage(tileX, tileY);
             return;
         }
         GameState state = gameController.getGameState();
         state.removeDecorationAtTile(tileX, tileY);
+    }
+
+    public void setGaragePurchaseContentType(TransportContentType garagePurchaseContentType) {
+        this.garagePurchaseContentType = garagePurchaseContentType;
+    }
+
+    public TransportContentType getGaragePurchaseContentType() {
+        return garagePurchaseContentType;
+    }
+
+    public void adjustTrafficLightHorizontalGreen(float deltaSeconds) {
+        gameController.adjustTrafficLightHorizontalGreenSeconds(deltaSeconds);
+    }
+
+    public void adjustTrafficLightVerticalGreen(float deltaSeconds) {
+        gameController.adjustTrafficLightVerticalGreenSeconds(deltaSeconds);
+    }
+
+    public void resetTrafficLights() {
+        gameController.resetTrafficLightGreenSeconds();
     }
 
     private static void paintFootprint(GameMap map, PlacedDecoration decoration, TileType type) {

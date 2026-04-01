@@ -16,9 +16,15 @@ import com.team404.tycoon.desktop.assets.DecorationTextureCache;
 import com.team404.tycoon.model.GameMap;
 import com.team404.tycoon.model.GameState;
 import com.team404.tycoon.model.PlacedDecoration;
+import com.team404.tycoon.model.RoadPathfinder;
+import com.team404.tycoon.model.Route;
 import com.team404.tycoon.model.Tile;
 import com.team404.tycoon.model.TileType;
 import com.team404.tycoon.model.Town;
+import com.team404.tycoon.model.Shipment;
+import com.team404.tycoon.model.TransportContentType;
+import com.team404.tycoon.model.TransportDemand;
+import com.team404.tycoon.model.Vehicle;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -105,21 +111,84 @@ public class Renderer2D implements GameRenderer {
         drawTileSurface(map);
         drawGridLines(map);
         drawDecorations(state);
+        drawVehicles(state);
         drawTownNames(state);
         drawBuildPreview(map);
         drawHoverHighlight(map);
     }
 
+    private void drawVehicles(GameState state) {
+        if (state.getVehicles().isEmpty()) {
+            return;
+        }
+        shape.begin(ShapeRenderer.ShapeType.Filled);
+        for (Vehicle vehicle : state.getVehicles()) {
+            float[] pos = getVehicleScreenPos(state, vehicle);
+            if (pos == null) {
+                continue;
+            }
+            shape.setColor(vehicleColor(vehicle));
+            shape.circle(pos[0], pos[1], 10f);
+        }
+        shape.end();
+    }
+
+    private float[] getVehicleScreenPos(GameState state, Vehicle vehicle) {
+        Route route = state.findRouteById(vehicle.getRouteId()).orElse(null);
+        if (route == null || route.getStops().size() < 2) {
+            return null;
+        }
+        int stopCount = route.getStops().size();
+        int fromIndex = Math.floorMod(vehicle.getCurrentStopIndex(), stopCount);
+        int toIndex = (fromIndex + 1) % stopCount;
+        Town fromTown = state.getTown(route.getStops().get(fromIndex).getTownIndex()).orElse(null);
+        Town toTown = state.getTown(route.getStops().get(toIndex).getTownIndex()).orElse(null);
+        if (fromTown == null || toTown == null) {
+            return null;
+        }
+        List<int[]> roadPath = RoadPathfinder.findRoadPath(state, fromTown, toTown, 6);
+        float[] tilePos;
+        if (roadPath.isEmpty()) {
+            int[] nearest = RoadPathfinder.findNearestRoadTile(
+                    state, fromTown.getCenterX(), fromTown.getCenterY(), 6);
+            if (nearest == null) {
+                return null;
+            }
+            tilePos = new float[]{nearest[0], nearest[1]};
+        } else {
+            tilePos = interpolateOnRoadPath(roadPath, vehicle.getLegProgressTiles());
+        }
+        float sx = toScreenX(tilePos[0], tilePos[1]);
+        float sy = toScreenY(tilePos[0], tilePos[1]) + TILE_H * 1.35f;
+        return new float[]{sx, sy};
+    }
+
+    private static float[] interpolateOnRoadPath(List<int[]> roadPath, float legProgressTiles) {
+        if (roadPath.size() == 1) {
+            return new float[]{roadPath.get(0)[0], roadPath.get(0)[1]};
+        }
+        float clamped = Math.max(0f, Math.min(legProgressTiles, roadPath.size() - 1f));
+        int segment = Math.min((int) Math.floor(clamped), roadPath.size() - 2);
+        float localT = clamped - segment;
+        int[] from = roadPath.get(segment);
+        int[] to = roadPath.get(segment + 1);
+        float x = from[0] + (to[0] - from[0]) * localT;
+        float y = from[1] + (to[1] - from[1]) * localT;
+        return new float[]{x, y};
+    }
+
     private void drawTownNames(GameState state) {
-        if (state.getTowns().isEmpty()) {
+        if (state.getTowns().isEmpty() && state.getVehicles().isEmpty()) {
             return;
         }
         batch.begin();
         batch.setProjectionMatrix(camera.combined);
-        for (Town t : state.getTowns()) {
-            String name = t.getName();
+
+        for (int i = 0; i < state.getTowns().size(); i++) {
+            Town t = state.getTowns().get(i);
             float sx = toScreenX(t.getCenterX(), t.getCenterY());
             float sy = toScreenY(t.getCenterX(), t.getCenterY());
+            String name = t.getName();
             glyphLayout.setText(font, name);
             float x = sx - glyphLayout.width * 0.5f;
             float y = sy + TILE_H * 1.8f;
@@ -127,9 +196,105 @@ public class Renderer2D implements GameRenderer {
             font.draw(batch, name, x + 1f, y - 1f);
             font.setColor(0.95f, 0.95f, 0.95f, 1f);
             font.draw(batch, name, x, y);
+
+            String demandLabel = buildDemandLabel(state, i);
+            if (!demandLabel.isEmpty()) {
+                glyphLayout.setText(font, demandLabel);
+                float dx = sx - glyphLayout.width * 0.5f;
+                float dy = y - 14f;
+                font.setColor(0f, 0f, 0f, 0.7f);
+                font.draw(batch, demandLabel, dx + 1f, dy - 1f);
+                font.setColor(1f, 0.85f, 0.25f, 1f);
+                font.draw(batch, demandLabel, dx, dy);
+            }
         }
+
+        for (Vehicle vehicle : state.getVehicles()) {
+            float[] pos = getVehicleScreenPos(state, vehicle);
+            if (pos == null) {
+                continue;
+            }
+            String cargoLabel = buildCargoLabel(vehicle);
+            if (cargoLabel.isEmpty()) {
+                continue;
+            }
+            glyphLayout.setText(font, cargoLabel);
+            float lx = pos[0] - glyphLayout.width * 0.5f;
+            float ly = pos[1] + 14f;
+            font.setColor(0f, 0f, 0f, 0.75f);
+            font.draw(batch, cargoLabel, lx + 1f, ly - 1f);
+            font.setColor(vehicleTextColor(vehicle));
+            font.draw(batch, cargoLabel, lx, ly);
+        }
+
         font.setColor(Color.WHITE);
         batch.end();
+    }
+
+    private static String buildDemandLabel(GameState state, int townIndex) {
+        int passengers = 0;
+        int goods = 0;
+        for (TransportDemand demand : state.getTransportDemand()) {
+            if (demand.getOriginTownIndex() == townIndex) {
+                if (demand.getContentType() == TransportContentType.PASSENGERS) {
+                    passengers += demand.getQuantity();
+                } else {
+                    goods += demand.getQuantity();
+                }
+            }
+        }
+        if (passengers == 0 && goods == 0) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder();
+        if (passengers > 0) {
+            sb.append(passengers).append("p");
+        }
+        if (goods > 0) {
+            if (sb.length() > 0) {
+                sb.append(" ");
+            }
+            sb.append(goods).append("g");
+        }
+        return sb.toString();
+    }
+
+    private static String buildCargoLabel(Vehicle vehicle) {
+        int passengers = 0;
+        int goods = 0;
+        for (Shipment shipment : vehicle.getLoadedShipments()) {
+            if (shipment.getContentType() == TransportContentType.PASSENGERS) {
+                passengers += shipment.getQuantity();
+            } else {
+                goods += shipment.getQuantity();
+            }
+        }
+        if (passengers == 0 && goods == 0) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder();
+        if (passengers > 0) {
+            sb.append(passengers).append("p");
+        }
+        if (goods > 0) {
+            if (sb.length() > 0) {
+                sb.append(" ");
+            }
+            sb.append(goods).append("g");
+        }
+        return sb.toString();
+    }
+
+    private Color vehicleTextColor(Vehicle vehicle) {
+        boolean p = vehicle.getType().supports(TransportContentType.PASSENGERS);
+        boolean g = vehicle.getType().supports(TransportContentType.GOODS);
+        if (p && g) {
+            return new Color(1f, 0.9f, 0.2f, 1f);
+        }
+        if (p) {
+            return new Color(0.4f, 0.95f, 1f, 1f);
+        }
+        return new Color(1f, 0.7f, 0.3f, 1f);
     }
 
     private void drawTileSurface(GameMap map) {
@@ -365,6 +530,14 @@ public class Renderer2D implements GameRenderer {
         return (tileX + tileY) * (TILE_H / 2f);
     }
 
+    private static float toScreenX(float tileX, float tileY) {
+        return (tileX - tileY) * (TILE_W / 2f);
+    }
+
+    private static float toScreenY(float tileX, float tileY) {
+        return (tileX + tileY) * (TILE_H / 2f);
+    }
+
     /**
      * Inverse of {@link #toScreenX} / {@link #toScreenY} at the tile origin (same space as unproject).
      */
@@ -456,5 +629,20 @@ public class Renderer2D implements GameRenderer {
     public void pan(float amountX, float amountY) {
         float panSpeed = 32f * camera.zoom;
         camera.translate(amountX * panSpeed, -amountY * panSpeed);
+    }
+
+    private Color vehicleColor(Vehicle vehicle) {
+        boolean supportsPassengers = vehicle.getType().supports(TransportContentType.PASSENGERS);
+        boolean supportsGoods = vehicle.getType().supports(TransportContentType.GOODS);
+        if (supportsPassengers && supportsGoods) {
+            return new Color(0.92f, 0.72f, 0.25f, 1f);
+        }
+        if (supportsPassengers) {
+            return new Color(0.20f, 0.82f, 1f, 1f);
+        }
+        if (supportsGoods) {
+            return new Color(1f, 0.55f, 0.20f, 1f);
+        }
+        return new Color(0.95f, 0.95f, 0.95f, 1f);
     }
 }

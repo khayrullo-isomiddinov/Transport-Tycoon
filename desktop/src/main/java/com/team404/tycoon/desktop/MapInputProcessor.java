@@ -6,6 +6,7 @@ import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.math.Vector3;
 import com.team404.tycoon.controller.InputController;
 import com.team404.tycoon.desktop.assets.AssetPaletteState;
+import com.team404.tycoon.model.TransportContentType;
 
 public class MapInputProcessor implements InputProcessor {
 
@@ -195,6 +196,34 @@ public class MapInputProcessor implements InputProcessor {
 
     @Override
     public boolean keyDown(int keycode) {
+        if (keycode == Input.Keys.NUM_1) {
+            inputController.setGaragePurchaseContentType(TransportContentType.PASSENGERS);
+            return true;
+        }
+        if (keycode == Input.Keys.NUM_2) {
+            inputController.setGaragePurchaseContentType(TransportContentType.GOODS);
+            return true;
+        }
+        if (keycode == Input.Keys.Z) {
+            inputController.adjustTrafficLightHorizontalGreen(-0.5f);
+            return true;
+        }
+        if (keycode == Input.Keys.X) {
+            inputController.adjustTrafficLightHorizontalGreen(0.5f);
+            return true;
+        }
+        if (keycode == Input.Keys.C) {
+            inputController.adjustTrafficLightVerticalGreen(-0.5f);
+            return true;
+        }
+        if (keycode == Input.Keys.V) {
+            inputController.adjustTrafficLightVerticalGreen(0.5f);
+            return true;
+        }
+        if (keycode == Input.Keys.R) {
+            inputController.resetTrafficLights();
+            return true;
+        }
         return false;
     }
 

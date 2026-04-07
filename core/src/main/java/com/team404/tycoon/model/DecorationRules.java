@@ -10,7 +10,7 @@ public final class DecorationRules {
 
     public static int[] footprintForPath(String resourcePath) {
         String n = resourcePath.toLowerCase();
-        if (n.contains("highway-straight") || n.contains("highway-top-left") || n.contains("intersection")) {
+        if (n.contains("highway-straight") || n.contains("highway-top-left") || n.contains("-and-")) {
             // One cell; art defines horizontal vs vertical road direction on the iso grid.
             return new int[]{1, 1};
         }

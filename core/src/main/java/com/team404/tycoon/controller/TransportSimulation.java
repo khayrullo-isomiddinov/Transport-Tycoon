@@ -1,5 +1,6 @@
 package com.team404.tycoon.controller;
 
+import com.team404.tycoon.model.EconomyConfig;
 import com.team404.tycoon.model.GameState;
 import com.team404.tycoon.model.RoadPathfinder;
 import com.team404.tycoon.model.Route;
@@ -148,10 +149,8 @@ public final class TransportSimulation {
         if (!state.hasConnectedGarageNearTown(town, 10)) {
             return;
         }
-        long maintenanceCost = 15L;
-        if (state.spendMoney(maintenanceCost)) {
-            vehicle.performMaintenance();
-        }
+        state.chargeRunningCost(EconomyConfig.VEHICLE_MAINTENANCE_COST);
+        vehicle.performMaintenance();
     }
 
     private static boolean mustStopForRedLight(GameState state, Route route, Vehicle vehicle) {

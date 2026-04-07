@@ -1,5 +1,6 @@
 package com.team404.tycoon.controller;
 
+import com.team404.tycoon.model.EconomyConfig;
 import com.team404.tycoon.model.GameState;
 import com.team404.tycoon.model.PlacedDecoration;
 import com.team404.tycoon.model.Route;
@@ -17,6 +18,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TransportSimulationTest {
@@ -146,7 +148,7 @@ class TransportSimulationTest {
         state.addTown(new Town("B", 6, 2));
         state.addRoute(new Route("r-decor-road", List.of(new RouteStop(0), new RouteStop(1))));
         state.addDecoration(new PlacedDecoration(2, 2, "resources/highway-straight.png", 1, 1));
-        state.addDecoration(new PlacedDecoration(3, 2, "resources/intersection.png", 1, 1));
+        state.addDecoration(new PlacedDecoration(3, 2, "resources/right-and-down.png", 1, 1));
         state.addDecoration(new PlacedDecoration(4, 2, "resources/trafficlights.png", 1, 1));
         state.addDecoration(new PlacedDecoration(5, 2, "resources/highway-top-left.png", 1, 1));
         state.addDecoration(new PlacedDecoration(6, 2, "resources/highway-straight.png", 1, 1));
@@ -167,7 +169,7 @@ class TransportSimulationTest {
         state.addTown(new Town("B", 5, 2));
         state.addRoute(new Route("r-generic-road", List.of(new RouteStop(0), new RouteStop(1))));
         state.addDecoration(new PlacedDecoration(2, 2, "resources/highway.png", 1, 1));
-        state.addDecoration(new PlacedDecoration(3, 2, "resources/intersection.png", 1, 1));
+        state.addDecoration(new PlacedDecoration(3, 2, "resources/up-and-right.png", 1, 1));
         state.addDecoration(new PlacedDecoration(4, 2, "resources/traffic.png", 1, 1));
         state.addDecoration(new PlacedDecoration(5, 2, "resources/highway.png", 1, 1));
 
@@ -203,7 +205,9 @@ class TransportSimulationTest {
     @Test
     void purchaseAndSellVehicleViaGarageControllerApis() {
         GameState state = new GameState(32, 32);
-        state.setBalance(500L);
+        // Start with just enough to buy a truck and have resale value left over.
+        long initialBalance = EconomyConfig.TRUCK_PURCHASE_COST + EconomyConfig.TRUCK_RESALE_VALUE;
+        state.setBalance(initialBalance);
         state.addTown(new Town("A", 3, 3));
         state.addTown(new Town("B", 10, 10));
         state.addRoute(new Route("r-4", List.of(new RouteStop(0), new RouteStop(1))));
@@ -215,15 +219,72 @@ class TransportSimulationTest {
 
         assertTrue(purchased);
         assertEquals(1, state.getVehicles().size());
-        assertEquals(250L, state.getBalance(), "Purchase should spend fixed vehicle price");
+        assertEquals(EconomyConfig.TRUCK_RESALE_VALUE, state.getBalance(), "Purchase should spend truck cost");
 
         String vehicleId = state.getVehicles().get(0).getId();
         boolean sold = controller.sellVehicle(vehicleId);
         assertTrue(sold);
         assertEquals(0, state.getVehicles().size());
-        assertEquals(375L, state.getBalance(), "Selling should add resale income");
+        assertEquals(EconomyConfig.TRUCK_PURCHASE_COST, state.getBalance(), "Selling should refund resale value");
 
         assertFalse(controller.sellVehicle("missing-id"));
+    }
+
+    @Test
+    void purchaseBlockedWhenInsufficientFunds() {
+        GameState state = new GameState(32, 32);
+        state.setBalance(EconomyConfig.TRUCK_PURCHASE_COST - 1L);
+        state.addTown(new Town("A", 3, 3));
+        state.addTown(new Town("B", 10, 10));
+        state.addRoute(new Route("r-5", List.of(new RouteStop(0), new RouteStop(1))));
+        state.getMap().getTile(6, 5).setType(TileType.ROAD);
+        state.addDecoration(new PlacedDecoration(5, 5, "resources/garage.png", 1, 1));
+        GameController controller = new GameController(state);
+
+        boolean purchased = controller.purchaseVehicleAtGarage(5, 5, TransportContentType.GOODS);
+
+        assertFalse(purchased, "Purchase must be refused when player cannot afford it");
+        assertEquals(0, state.getVehicles().size());
+        assertEquals(EconomyConfig.TRUCK_PURCHASE_COST - 1L, state.getBalance(), "Balance must not change on failed purchase");
+    }
+
+    @Test
+    void chargeRunningCostTriggersBankruptcy() {
+        GameState state = new GameState(32, 32);
+        state.setBalance(EconomyConfig.VEHICLE_MAINTENANCE_COST - 1L);
+
+        assertFalse(state.isBankrupt(), "Not bankrupt before the charge");
+        state.chargeRunningCost(EconomyConfig.VEHICLE_MAINTENANCE_COST);
+
+        assertTrue(state.isBankrupt(), "Negative balance after mandatory cost must trigger bankruptcy");
+        assertTrue(state.getBalance() < 0, "Balance must actually go negative");
+    }
+
+    @Test
+    void bankruptcyFreezesSimulationAndBlocksPurchases() {
+        GameState state = new GameState(32, 32);
+        state.addTown(new Town("A", 2, 2));
+        state.addTown(new Town("B", 10, 2));
+        paintHorizontalRoad(state, 2, 10, 2);
+        state.addRoute(new Route("r-bankrupt", List.of(new RouteStop(0), new RouteStop(1))));
+        VehicleType bus = new VehicleType("Bus", 10, 10f, EnumSet.of(TransportContentType.PASSENGERS));
+        Vehicle vehicle = new Vehicle("v-bankrupt", "r-bankrupt", bus, 0);
+        state.addVehicle(vehicle);
+        state.setBalance(0L);
+        state.chargeRunningCost(1L); // force bankruptcy
+
+        assertTrue(state.isBankrupt());
+
+        GameController controller = new GameController(state);
+        controller.update(5.0f); // should be a no-op due to bankruptcy
+
+        assertEquals(0f, vehicle.getLegProgressTiles(), 0.0001f, "Bankrupt simulation must not advance vehicles");
+
+        // Purchase must also be blocked regardless of whether funds exist.
+        state.getMap().getTile(3, 3).setType(TileType.ROAD);
+        state.addDecoration(new PlacedDecoration(3, 3, "resources/garage.png", 1, 1));
+        boolean purchased = controller.purchaseVehicleAtGarage(3, 3, TransportContentType.GOODS);
+        assertFalse(purchased, "Bankrupt company must not be able to buy vehicles");
     }
 
     private static void paintHorizontalRoad(GameState state, int fromX, int toX, int y) {
@@ -231,6 +292,7 @@ class TransportSimulationTest {
         int maxX = Math.max(fromX, toX);
         for (int x = minX; x <= maxX; x++) {
             state.getMap().getTile(x, y).setType(TileType.ROAD);
+            state.addDecoration(new PlacedDecoration(x, y, "resources/highway-straight.png", 1, 1));
         }
     }
 }

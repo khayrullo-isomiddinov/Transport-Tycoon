@@ -2,6 +2,7 @@ package com.team404.tycoon.controller;
 
 import com.team404.tycoon.model.BuildMode;
 import com.team404.tycoon.model.DecorationRules;
+import com.team404.tycoon.model.EconomyConfig;
 import com.team404.tycoon.model.GameMap;
 import com.team404.tycoon.model.GameState;
 import com.team404.tycoon.model.PlacedDecoration;
@@ -51,21 +52,32 @@ public class InputController {
     }
 
     public void onPrimaryClick(int tileX, int tileY) {
-        if (selectedAssetPath == null) {
-            gameController.purchaseVehicleAtGarage(tileX, tileY, garagePurchaseContentType);
+        GameState state = gameController.getGameState();
+        if (state.isBankrupt()) {
             return;
         }
-        GameState state = gameController.getGameState();
+        if (selectedAssetPath == null) {
+            if (currentMode != BuildMode.ROAD) {
+                applyTerrainTool(state, tileX, tileY);
+            } else {
+                gameController.purchaseVehicleAtGarage(tileX, tileY, garagePurchaseContentType);
+            }
+            return;
+        }
         GameMap map = state.getMap();
-
         int[] fp = DecorationRules.footprintForPath(selectedAssetPath);
         PlacedDecoration dec = new PlacedDecoration(
                 tileX, tileY, selectedAssetPath, fp[0], fp[1]);
-        if (state.canPlaceDecoration(map, dec)) {
-            state.addDecoration(dec);
-            if (shouldPaintFoundation(selectedAssetPath)) {
-                paintFootprint(map, dec, foundationTypeFor(selectedAssetPath));
-            }
+        if (!state.canPlaceDecoration(map, dec)) {
+            return;
+        }
+        if (EconomyConfig.isRoadDecoration(selectedAssetPath)
+                && !state.spendMoney(EconomyConfig.ROAD_DECORATION_COST)) {
+            return;
+        }
+        state.addDecoration(dec);
+        if (shouldPaintFoundation(selectedAssetPath)) {
+            paintFootprint(map, dec, foundationTypeFor(selectedAssetPath));
         }
     }
 
@@ -98,6 +110,19 @@ public class InputController {
         gameController.resetTrafficLightGreenSeconds();
     }
 
+    private void applyTerrainTool(GameState state, int tileX, int tileY) {
+        GameMap map = state.getMap();
+        if (!map.isInBounds(tileX, tileY)) {
+            return;
+        }
+        if (currentMode == BuildMode.DEMOLISH) {
+            state.removeDecorationAtTile(tileX, tileY);
+            map.getTile(tileX, tileY).setType(TileType.EMPTY);
+        } else {
+            map.getTile(tileX, tileY).setType(currentMode.getTargetType());
+        }
+    }
+
     private static void paintFootprint(GameMap map, PlacedDecoration decoration, TileType type) {
         for (int dy = 0; dy < decoration.getFootprintTilesH(); dy++) {
             for (int dx = 0; dx < decoration.getFootprintTilesW(); dx++) {
@@ -117,8 +142,10 @@ public class InputController {
         String n = resourcePath.toLowerCase();
         return !n.contains("highway-straight")
                 && !n.contains("highway-top-left")
-                && !n.contains("intersection")
+                && !n.contains("-and-")
+                && !n.contains("to-")
                 && !n.contains("trafficlights")
+                && !n.endsWith("/+.png")
                 && !n.contains("traffic lights")
                 && !n.contains("tree");
     }

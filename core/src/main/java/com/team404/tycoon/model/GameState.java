@@ -21,6 +21,7 @@ public class GameState {
     private long balance;
     private long lifetimeIncome;
     private long lifetimeExpenses;
+    private boolean bankrupt;
     private float simulationTimeSeconds;
     private float trafficLightHorizontalGreenSeconds = 4.0f;
     private float trafficLightVerticalGreenSeconds = 4.0f;
@@ -96,8 +97,20 @@ public class GameState {
         return trafficLightVerticalGreenSeconds;
     }
 
+    public boolean isBankrupt() {
+        return bankrupt;
+    }
+
+    public boolean canAfford(long amount) {
+        return !bankrupt && balance >= amount;
+    }
+
+    /** Sets the balance directly (test / scenario setup). Clears bankruptcy if balance is non-negative. */
     public void setBalance(long balance) {
         this.balance = balance;
+        if (balance >= 0) {
+            this.bankrupt = false;
+        }
     }
 
     public void addIncome(long income) {
@@ -108,16 +121,36 @@ public class GameState {
         this.lifetimeIncome += income;
     }
 
+    /**
+     * Deducts a player-initiated expense. Returns false (and does nothing) if the player
+     * cannot afford it or the company is bankrupt.
+     */
     public boolean spendMoney(long expense) {
         if (expense < 0) {
             throw new IllegalArgumentException("expense must be >= 0");
         }
-        if (balance < expense) {
+        if (!canAfford(expense)) {
             return false;
         }
         balance -= expense;
         lifetimeExpenses += expense;
         return true;
+    }
+
+    /**
+     * Deducts a mandatory running cost (e.g. vehicle maintenance). Unlike
+     * {@link #spendMoney}, this always applies even when funds are low, and will
+     * trigger bankruptcy if it pushes the balance below zero.
+     */
+    public void chargeRunningCost(long cost) {
+        if (cost < 0) {
+            throw new IllegalArgumentException("cost must be >= 0");
+        }
+        balance -= cost;
+        lifetimeExpenses += cost;
+        if (balance < 0 && !bankrupt) {
+            bankrupt = true;
+        }
     }
 
     public void setTrafficLightDurations(float horizontalGreenSeconds, float verticalGreenSeconds) {
@@ -182,13 +215,13 @@ public class GameState {
                         destination,
                         TransportContentType.PASSENGERS,
                         passengerUnits,
-                        9));
+                        EconomyConfig.PASSENGER_UNIT_REVENUE));
                 addTransportDemand(new TransportDemand(
                         origin,
                         destination,
                         TransportContentType.GOODS,
                         goodsUnits,
-                        14));
+                        EconomyConfig.GOODS_UNIT_REVENUE));
             }
         }
     }
@@ -262,6 +295,9 @@ public class GameState {
                 int tx = candidate.getAnchorTileX() + dx;
                 int ty = candidate.getAnchorTileY() + dy;
                 if (!map.isInBounds(tx, ty)) {
+                    return false;
+                }
+                if (map.getTile(tx, ty).getType() == TileType.WATER) {
                     return false;
                 }
             }
@@ -369,7 +405,6 @@ public class GameState {
             return false;
         }
 
-        boolean baseRoad = map.getTile(x, y).getType() == TileType.ROAD;
         boolean hasRoadDecoration = false;
 
         for (PlacedDecoration d : decorations) {
@@ -385,13 +420,15 @@ public class GameState {
             return false;
         }
 
-        return baseRoad || hasRoadDecoration;
+        return hasRoadDecoration;
     }
 
     private static boolean isRoadDecorationResourcePath(String lowerResourcePath) {
         return lowerResourcePath.contains("highway")
-                || lowerResourcePath.contains("intersection")
+                || lowerResourcePath.contains("-and-")
+                || lowerResourcePath.contains("to-")
                 || lowerResourcePath.contains("trafficlights")
+                || lowerResourcePath.endsWith("/+.png")
                 || lowerResourcePath.contains("traffic lights")
                 || lowerResourcePath.contains("traffic")
                 || lowerResourcePath.contains("garage");

@@ -117,20 +117,84 @@ public class Renderer2D implements GameRenderer {
         drawHoverHighlight(map);
     }
 
+    private static final String CAR_RIGHT_PATH      = "resources/car-right.png";
+    private static final String CAR_LEFT_PATH       = "resources/car-left.png";
+    private static final String CAR_DOWN_RIGHT_PATH = "resources/car-down-right.png";
+    private static final String CAR_DOWN_LEFT_PATH  = "resources/car-down-left.png";
+    private static final float VEHICLE_DRAW_SIZE = 32f;
+
+    private void drawDecorations(GameState state) {
+        List<PlacedDecoration> list = new ArrayList<>(state.getDecorations());
+        // Draw larger (x+y) first (back / top of screen), smaller last (front / bottom) so nearer sprites win.
+        list.sort(Comparator
+                .comparingInt(PlacedDecoration::depthSortKey).reversed()
+                .thenComparingInt(PlacedDecoration::getAnchorTileX)
+                .thenComparingInt(PlacedDecoration::getAnchorTileY));
+
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+        batch.begin();
+        batch.setProjectionMatrix(camera.combined);
+        batch.setColor(Color.WHITE);
+
+        for (PlacedDecoration d : list) {
+            Texture tex = textureCache.get(d.getResourcePath());
+            int fw = d.getFootprintTilesW();
+            int fh = d.getFootprintTilesH();
+            float drawW = TILE_W * (0.5f * (fw + fh));
+            drawW *= DecorationMetadata.widthScale(d.getResourcePath());
+            float aspect = (float) tex.getHeight() / (float) tex.getWidth();
+            float vScale = DecorationMetadata.verticalOverlapScale(
+                    d.getResourcePath(), fw, fh);
+            float drawH = drawW * aspect * vScale;
+
+            int ax = d.getAnchorTileX();
+            int ay = d.getAnchorTileY();
+            float sx = toScreenX(ax, ay);
+            float sy = toScreenY(ax, ay);
+            float by = sy + TILE_H / 2f + DecorationMetadata.groundYOffset(d.getResourcePath(), drawH);
+            batch.draw(tex, sx - drawW / 2f, by, drawW, drawH);
+        }
+
+        batch.end();
+        Gdx.gl.glDisable(GL20.GL_BLEND);
+    }
+
     private void drawVehicles(GameState state) {
         if (state.getVehicles().isEmpty()) {
             return;
         }
-        shape.begin(ShapeRenderer.ShapeType.Filled);
+        Texture carRightTex     = textureCache.get(CAR_RIGHT_PATH);
+        Texture carLeftTex      = textureCache.get(CAR_LEFT_PATH);
+        Texture carDownRightTex = textureCache.get(CAR_DOWN_RIGHT_PATH);
+        Texture carDownLeftTex  = textureCache.get(CAR_DOWN_LEFT_PATH);
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+        batch.setProjectionMatrix(camera.combined);
+        batch.setColor(Color.WHITE);
+        batch.begin();
         for (Vehicle vehicle : state.getVehicles()) {
             float[] pos = getVehicleScreenPos(state, vehicle);
             if (pos == null) {
                 continue;
             }
-            shape.setColor(vehicleColor(vehicle));
-            shape.circle(pos[0], pos[1], 10f);
+            int dx = (int) pos[2];
+            int dy = (int) pos[3];
+            Texture carTex;
+            if (dx > 0) {
+                carTex = carRightTex;
+            } else if (dx < 0) {
+                carTex = carDownLeftTex;
+            } else if (dy > 0) {
+                carTex = carLeftTex;
+            } else {
+                carTex = carDownRightTex;
+            }
+            float half = VEHICLE_DRAW_SIZE / 2f;
+            batch.draw(carTex, pos[0] - half, pos[1] - half, VEHICLE_DRAW_SIZE, VEHICLE_DRAW_SIZE);
         }
-        shape.end();
+        batch.end();
+        Gdx.gl.glDisable(GL20.GL_BLEND);
     }
 
     private float[] getVehicleScreenPos(GameState state, Vehicle vehicle) {
@@ -148,6 +212,8 @@ public class Renderer2D implements GameRenderer {
         }
         List<int[]> roadPath = RoadPathfinder.findRoadPath(state, fromTown, toTown, 6);
         float[] tilePos;
+        int dirDx = 1;
+        int dirDy = 0;
         if (roadPath.isEmpty()) {
             int[] nearest = RoadPathfinder.findNearestRoadTile(
                     state, fromTown.getCenterX(), fromTown.getCenterY(), 6);
@@ -157,10 +223,16 @@ public class Renderer2D implements GameRenderer {
             tilePos = new float[]{nearest[0], nearest[1]};
         } else {
             tilePos = interpolateOnRoadPath(roadPath, vehicle.getLegProgressTiles());
+            float progress = Math.max(0f, Math.min(vehicle.getLegProgressTiles(), roadPath.size() - 1f));
+            int seg = Math.min((int) Math.floor(progress), roadPath.size() - 2);
+            int[] segFrom = roadPath.get(seg);
+            int[] segTo   = roadPath.get(seg + 1);
+            dirDx = segTo[0] - segFrom[0];
+            dirDy = segTo[1] - segFrom[1];
         }
         float sx = toScreenX(tilePos[0], tilePos[1]);
-        float sy = toScreenY(tilePos[0], tilePos[1]) + TILE_H * 1.35f;
-        return new float[]{sx, sy};
+        float sy = toScreenY(tilePos[0], tilePos[1]) + TILE_H;
+        return new float[]{sx, sy, dirDx, dirDy};
     }
 
     private static float[] interpolateOnRoadPath(List<int[]> roadPath, float legProgressTiles) {
@@ -485,42 +557,6 @@ public class Renderer2D implements GameRenderer {
         Gdx.gl.glDisable(GL20.GL_BLEND);
     }
 
-    private void drawDecorations(GameState state) {
-        List<PlacedDecoration> list = new ArrayList<>(state.getDecorations());
-        // Draw larger (x+y) first (back / top of screen), smaller last (front / bottom) so nearer sprites win.
-        list.sort(Comparator
-                .comparingInt(PlacedDecoration::depthSortKey).reversed()
-                .thenComparingInt(PlacedDecoration::getAnchorTileX)
-                .thenComparingInt(PlacedDecoration::getAnchorTileY));
-
-        Gdx.gl.glEnable(GL20.GL_BLEND);
-        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
-        batch.begin();
-        batch.setProjectionMatrix(camera.combined);
-        batch.setColor(Color.WHITE);
-
-        for (PlacedDecoration d : list) {
-            Texture tex = textureCache.get(d.getResourcePath());
-            int fw = d.getFootprintTilesW();
-            int fh = d.getFootprintTilesH();
-            float drawW = TILE_W * (0.5f * (fw + fh));
-            drawW *= DecorationMetadata.widthScale(d.getResourcePath());
-            float aspect = (float) tex.getHeight() / (float) tex.getWidth();
-            float vScale = DecorationMetadata.verticalOverlapScale(
-                    d.getResourcePath(), fw, fh);
-            float drawH = drawW * aspect * vScale;
-
-            int ax = d.getAnchorTileX();
-            int ay = d.getAnchorTileY();
-            float sx = toScreenX(ax, ay);
-            float sy = toScreenY(ax, ay);
-            float by = sy + TILE_H / 2f + DecorationMetadata.groundYOffset(d.getResourcePath(), drawH);
-            batch.draw(tex, sx - drawW / 2f, by, drawW, drawH);
-        }
-
-        batch.end();
-        Gdx.gl.glDisable(GL20.GL_BLEND);
-    }
 
     public static float toScreenX(int tileX, int tileY) {
         return (tileX - tileY) * (TILE_W / 2f);

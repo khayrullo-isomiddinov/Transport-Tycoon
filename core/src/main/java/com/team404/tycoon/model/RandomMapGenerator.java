@@ -1,6 +1,8 @@
 package com.team404.tycoon.model;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
@@ -18,11 +20,14 @@ public final class RandomMapGenerator {
         map.fill(TileType.EMPTY);
         state.clearTowns();
         state.clearTransportState();
+        state.setBalance(EconomyConfig.INITIAL_CAPITAL);
 
         paintWater(map, rng);
         paintForests(map, rng);
         generateTowns(state, map, rng);
-        connectTownRoadNetwork(state, map, rng);
+        connectTownRoadNetwork(state, map);
+        pruneDeadEndRoads(map);
+        decorateAllRoadTiles(state, map, rng);
         sprinkleNatureDecor(state, map, rng);
         state.bootstrapStarterTransport();
         state.seedRandomDemand(2, 6, rng);
@@ -104,12 +109,11 @@ public final class RandomMapGenerator {
             // Ensure the "town center" is always on land and driveable.
             paintRoadTile(map, cx, cy);
             placeTownBuildings(state, map, rng, cx, cy, half);
-            decorateTownRoadTiles(state, map, rng, cx, cy, half);
             state.addTown(new Town(generateTownName(rng), cx, cy));
         }
     }
 
-    private static void connectTownRoadNetwork(GameState state, GameMap map, Random rng) {
+    private static void connectTownRoadNetwork(GameState state, GameMap map) {
         List<Town> towns = state.getTowns();
         if (towns.size() < 2) {
             return;
@@ -117,13 +121,81 @@ public final class RandomMapGenerator {
         for (int i = 0; i < towns.size() - 1; i++) {
             Town a = towns.get(i);
             Town b = towns.get(i + 1);
-            carveWobblyRoad(map, rng, a.getCenterX(), a.getCenterY(), b.getCenterX(), b.getCenterY(), 5);
+            connectTownsWithHighway(map, a.getCenterX(), a.getCenterY(), b.getCenterX(), b.getCenterY());
         }
         if (towns.size() > 2) {
             Town first = towns.get(0);
-            Town last = towns.get(towns.size() - 1);
-            carveWobblyRoad(map, rng, first.getCenterX(), first.getCenterY(), last.getCenterX(), last.getCenterY(), 6);
+            Town last  = towns.get(towns.size() - 1);
+            connectTownsWithHighway(map, first.getCenterX(), first.getCenterY(), last.getCenterX(), last.getCenterY());
         }
+    }
+
+    /** BFS road between two towns, avoiding water. Only sets TileType.ROAD — decoration happens later. */
+    private static void connectTownsWithHighway(GameMap map, int sx, int sy, int ex, int ey) {
+        if (sx == ex && sy == ey) {
+            return;
+        }
+        List<int[]> path = findPathAvoidingWater(map, sx, sy, ex, ey);
+        for (int[] tile : path) {
+            paintRoadTile(map, tile[0], tile[1]);
+        }
+    }
+
+    /** BFS from (sx, sy) to (ex, ey) that never steps on water. Returns the tile path, or empty if unreachable. */
+    private static List<int[]> findPathAvoidingWater(GameMap map, int sx, int sy, int ex, int ey) {
+        int w = map.getWidth();
+        int h = map.getHeight();
+        int[][] prevX = new int[h][w];
+        int[][] prevY = new int[h][w];
+        boolean[][] visited = new boolean[h][w];
+        for (int[] row : prevX) {
+            java.util.Arrays.fill(row, -1);
+        }
+        visited[sy][sx] = true;
+        prevX[sy][sx] = sx;
+        prevY[sy][sx] = sy;
+        ArrayDeque<int[]> queue = new ArrayDeque<>();
+        queue.add(new int[]{sx, sy});
+        int[][] dirs = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+        boolean found = false;
+        outer:
+        while (!queue.isEmpty()) {
+            int[] cur = queue.poll();
+            for (int[] d : dirs) {
+                int nx = cur[0] + d[0];
+                int ny = cur[1] + d[1];
+                if (!map.isInBounds(nx, ny) || visited[ny][nx]) {
+                    continue;
+                }
+                if (map.getTile(nx, ny).getType() == TileType.WATER) {
+                    continue;
+                }
+                visited[ny][nx] = true;
+                prevX[ny][nx] = cur[0];
+                prevY[ny][nx] = cur[1];
+                if (nx == ex && ny == ey) {
+                    found = true;
+                    break outer;
+                }
+                queue.add(new int[]{nx, ny});
+            }
+        }
+        if (!found) {
+            return Collections.emptyList();
+        }
+        List<int[]> path = new ArrayList<>();
+        int cx = ex;
+        int cy = ey;
+        while (cx != sx || cy != sy) {
+            path.add(new int[]{cx, cy});
+            int px = prevX[cy][cx];
+            int py = prevY[cy][cx];
+            cx = px;
+            cy = py;
+        }
+        path.add(new int[]{sx, sy});
+        Collections.reverse(path);
+        return path;
     }
 
     private static int[] relocateOffWater(GameMap map, int cx, int cy, int maxRadius) {
@@ -232,53 +304,68 @@ public final class RandomMapGenerator {
         }
     }
 
-    private static void decorateTownRoadTiles(GameState state, GameMap map, Random rng, int cx, int cy, int half) {
-        int minX = cx - half;
-        int maxX = cx + half;
-        int minY = cy - half;
-        int maxY = cy + half;
-        List<int[]> roadCells = new ArrayList<>();
-        for (int y = minY; y <= maxY; y++) {
-            for (int x = minX; x <= maxX; x++) {
-                if (!map.isInBounds(x, y)) {
-                    continue;
-                }
-                if (map.getTile(x, y).getType() == TileType.ROAD) {
-                    roadCells.add(new int[]{x, y});
+    /** Iteratively removes road tiles with 0 or 1 road neighbour until the network is clean. */
+    private static void pruneDeadEndRoads(GameMap map) {
+        boolean changed = true;
+        while (changed) {
+            changed = false;
+            for (int y = 0; y < map.getHeight(); y++) {
+                for (int x = 0; x < map.getWidth(); x++) {
+                    if (map.getTile(x, y).getType() != TileType.ROAD) {
+                        continue;
+                    }
+                    int neighbors = (isRoad(map, x, y + 1) ? 1 : 0)
+                            + (isRoad(map, x, y - 1) ? 1 : 0)
+                            + (isRoad(map, x + 1, y) ? 1 : 0)
+                            + (isRoad(map, x - 1, y) ? 1 : 0);
+                    if (neighbors <= 1) {
+                        map.getTile(x, y).setType(TileType.EMPTY);
+                        changed = true;
+                    }
                 }
             }
         }
-        for (int[] c : roadCells) {
-            int x = c[0];
-            int y = c[1];
-            boolean up = isRoad(map, x, y + 1);
-            boolean down = isRoad(map, x, y - 1);
-            boolean left = isRoad(map, x - 1, y);
-            boolean right = isRoad(map, x + 1, y);
+    }
 
-            int neighbors = (up ? 1 : 0) + (down ? 1 : 0) + (left ? 1 : 0) + (right ? 1 : 0);
-            String path = null;
-
-            // 4-way node => traffic lights.
-            if (neighbors >= 4) {
-                path = "resources/trafficlights.png";
-            } else if (neighbors == 2 && !((up && down) || (left && right))) {
-                // 90-degree corner => intersection marker.
-                path = "resources/intersection.png";
-            } else if (left && right && !up && !down) {
-                path = "resources/highway-straight.png";
-            } else if (up && down && !left && !right) {
-                path = "resources/highway-top-left.png";
-            } else if (neighbors == 3) {
-                // 3-way highways can also use traffic lights (not always).
-                boolean hasStraightMain = (left && right) || (up && down);
-                float chance = hasStraightMain ? 0.35f : 0.22f;
-                if (rng.nextFloat() < chance) {
-                    path = "resources/trafficlights.png";
+    /** Single global decoration pass — runs after the full road network (towns + inter-town) is laid. */
+    private static void decorateAllRoadTiles(GameState state, GameMap map, Random rng) {
+        for (int y = 0; y < map.getHeight(); y++) {
+            for (int x = 0; x < map.getWidth(); x++) {
+                if (map.getTile(x, y).getType() != TileType.ROAD) {
+                    continue;
                 }
-            }
+                boolean up    = isRoad(map, x, y + 1);
+                boolean down  = isRoad(map, x, y - 1);
+                boolean left  = isRoad(map, x - 1, y);
+                boolean right = isRoad(map, x + 1, y);
+                int neighbors = (up ? 1 : 0) + (down ? 1 : 0) + (left ? 1 : 0) + (right ? 1 : 0);
 
-            if (path != null) {
+                String path;
+                if (neighbors >= 4) {
+                    path = rng.nextBoolean() ? "resources/trafficlights.png" : "resources/+.png";
+                } else if (neighbors == 3 && up && down && right) {
+                    path = "resources/to-right.png";
+                } else if (neighbors == 3 && up && down && left) {
+                    path = "resources/to-left.png";
+                } else if (neighbors == 3 && left && right && up) {
+                    path = "resources/to-up.png";
+                } else if (neighbors == 3 && left && right && down) {
+                    path = "resources/to-down.png";
+                } else if (neighbors == 3) {
+                    path = "resources/trafficlights.png";
+                } else if (right && down) {
+                    path = "resources/up-and-right.png";
+                } else if (down && left) {
+                    path = "resources/right-and-down.png";
+                } else if (left && up) {
+                    path = "resources/down-and-left.png";
+                } else if (up && right) {
+                    path = "resources/left-and-up.png";
+                } else if (left || right) {
+                    path = "resources/highway-straight.png";
+                } else {
+                    path = "resources/highway-top-left.png";
+                }
                 tryPlaceDecoration(state, map, x, y, path);
             }
         }
@@ -310,33 +397,7 @@ public final class RandomMapGenerator {
                 || isRoad(map, x, y - 1);
     }
 
-    private static void carveWobblyRoad(GameMap map, Random rng, int sx, int sy, int ex, int ey, int wiggleStep) {
-        int x = sx;
-        int y = sy;
-        int counter = 0;
-        while (x != ex || y != ey) {
-            paintRoadTile(map, x, y);
-            if (counter++ % wiggleStep == 0 && rng.nextFloat() < 0.45f) {
-                if (rng.nextBoolean() && x != ex) {
-                    y += rng.nextBoolean() ? 1 : -1;
-                } else if (y != ey) {
-                    x += rng.nextBoolean() ? 1 : -1;
-                }
-            } else {
-                if (Math.abs(ex - x) >= Math.abs(ey - y)) {
-                    x += Integer.compare(ex, x);
-                } else {
-                    y += Integer.compare(ey, y);
-                }
-            }
-            if (!map.isInBounds(x, y)) {
-                break;
-            }
-        }
-        paintRoadTile(map, ex, ey);
-    }
-
-    private static void placeOnTypes(
+private static void placeOnTypes(
             GameState state,
             GameMap map,
             Random rng,

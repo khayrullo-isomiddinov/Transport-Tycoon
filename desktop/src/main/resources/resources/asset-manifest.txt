@@ -53,3 +53,5 @@ yellowroadintersectionleft.png
 yellowroadintersectionright.png
 yellowroadintersectionup.png
 yellowroadleft.png
+car-right.png
+car-left.png

@@ -55,8 +55,10 @@ public final class DecorationMetadata {
         String n = resourcePath.toLowerCase();
         return n.contains("highway-straight")
                 || n.contains("highway-top-left")
-                || n.contains("intersection")
+                || n.contains("-and-")
+                || n.contains("to-")
                 || n.contains("trafficlights")
+                || n.endsWith("/+.png")
                 || n.contains("traffic lights")
                 || n.contains("tree")
                 || n.contains("villagehousewithgrass")

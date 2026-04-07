@@ -71,7 +71,6 @@
                 <configuration>
                     <executable>java</executable>
                     <arguments>
-                        <argument>-XstartOnFirstThread</argument>
                         <argument>-classpath</argument>
                         <classpath/>
                         <argument>com.team404.tycoon.desktop.DesktopLauncher</argument>

@@ -62,4 +62,43 @@ public class PlacementValidator {
 
         return true;
     }
+
+    /**
+     * Returns true if the tile at (tileX, tileY) can have its height raised by 1.
+     * Rejected for: out-of-bounds, water, city, industrial, road tiles, and tiles already at max height (3).
+     */
+    public boolean canRaiseTile(GameMap map, int tileX, int tileY) {
+        if (!map.isInBounds(tileX, tileY)) {
+            return false;
+        }
+        Tile tile = map.getTile(tileX, tileY);
+        TileType type = tile.getType();
+        if (type == TileType.WATER
+                || type == TileType.CITY
+                || type == TileType.INDUSTRIAL_FACILITY
+                || type == TileType.ROAD) {
+            return false;
+        }
+        return tile.getHeight() < 3;
+    }
+
+    /**
+     * Returns true if the tile at (tileX, tileY) can have its height lowered by 1.
+     * Rejected for: out-of-bounds, water, city, industrial, road tiles, and tiles already at min height (1).
+     * Height 0 is reserved for water tiles; non-water terrain stays at height 1 or above.
+     */
+    public boolean canLowerTile(GameMap map, int tileX, int tileY) {
+        if (!map.isInBounds(tileX, tileY)) {
+            return false;
+        }
+        Tile tile = map.getTile(tileX, tileY);
+        TileType type = tile.getType();
+        if (type == TileType.WATER
+                || type == TileType.CITY
+                || type == TileType.INDUSTRIAL_FACILITY
+                || type == TileType.ROAD) {
+            return false;
+        }
+        return tile.getHeight() > 1;
+    }
 }

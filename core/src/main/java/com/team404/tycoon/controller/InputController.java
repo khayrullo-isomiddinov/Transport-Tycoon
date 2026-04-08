@@ -6,6 +6,7 @@ import com.team404.tycoon.model.EconomyConfig;
 import com.team404.tycoon.model.GameMap;
 import com.team404.tycoon.model.GameState;
 import com.team404.tycoon.model.PlacedDecoration;
+import com.team404.tycoon.model.Tile;
 import com.team404.tycoon.model.TransportContentType;
 import com.team404.tycoon.model.TileType;
 
@@ -23,6 +24,12 @@ public class InputController {
      * The renderer or HUD can read this to show feedback to the player.
      */
     private boolean lastPlacementRejected;
+
+    /**
+     * Set to true when the most recent terraform click was rejected (tile invalid or can't afford).
+     * Cleared at the start of each click.
+     */
+    private boolean lastTerraformRejected;
 
     public InputController(GameController gameController) {
         this.gameController = gameController;
@@ -61,8 +68,13 @@ public class InputController {
         return lastPlacementRejected;
     }
 
+    public boolean isLastTerraformRejected() {
+        return lastTerraformRejected;
+    }
+
     public void onPrimaryClick(int tileX, int tileY) {
         lastPlacementRejected = false;
+        lastTerraformRejected = false;
         GameState state = gameController.getGameState();
         if (state.isBankrupt()) {
             return;
@@ -131,7 +143,29 @@ public class InputController {
         if (!map.isInBounds(tileX, tileY)) {
             return;
         }
-        if (currentMode == BuildMode.DEMOLISH) {
+        if (currentMode == BuildMode.RAISE_TERRAIN) {
+            if (!placementValidator.canRaiseTile(map, tileX, tileY)) {
+                lastTerraformRejected = true;
+                return;
+            }
+            if (!state.spendMoney(EconomyConfig.TERRAFORM_COST)) {
+                lastTerraformRejected = true;
+                return;
+            }
+            Tile tile = map.getTile(tileX, tileY);
+            tile.setHeight(tile.getHeight() + 1);
+        } else if (currentMode == BuildMode.LOWER_TERRAIN) {
+            if (!placementValidator.canLowerTile(map, tileX, tileY)) {
+                lastTerraformRejected = true;
+                return;
+            }
+            if (!state.spendMoney(EconomyConfig.TERRAFORM_COST)) {
+                lastTerraformRejected = true;
+                return;
+            }
+            Tile tile = map.getTile(tileX, tileY);
+            tile.setHeight(tile.getHeight() - 1);
+        } else if (currentMode == BuildMode.DEMOLISH) {
             state.removeDecorationAtTile(tileX, tileY);
             map.getTile(tileX, tileY).setType(TileType.EMPTY);
         } else {

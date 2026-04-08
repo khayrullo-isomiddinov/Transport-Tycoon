@@ -15,6 +15,7 @@ import com.team404.tycoon.controller.InputController;
 import com.team404.tycoon.controller.PlacementValidator;
 import com.team404.tycoon.desktop.assets.DecorationMetadata;
 import com.team404.tycoon.desktop.assets.DecorationTextureCache;
+import com.team404.tycoon.model.BuildMode;
 import com.team404.tycoon.model.EconomyConfig;
 import com.team404.tycoon.model.GameMap;
 import com.team404.tycoon.model.GameState;
@@ -63,6 +64,18 @@ public class Renderer2D implements GameRenderer {
     private final PlacementValidator placementValidator;
     private float waterAnimTime;
 
+    // ── birds ─────────────────────────────────────────────────────────────────
+    private static final int   BIRD_COUNT      = 18;
+    private static final float BIRD_ALTITUDE   = 90f;   // screen px above tile
+    private static final float BIRD_WING       = 6f;    // half-wingspan px
+    private static final float BIRD_FLAP_SPEED = 2.8f;
+    private static final float BIRD_FLAP_AMP   = 4f;
+    private final float[] birdTx   = new float[BIRD_COUNT]; // tile-space x
+    private final float[] birdTy   = new float[BIRD_COUNT]; // tile-space y
+    private final float[] birdVx   = new float[BIRD_COUNT]; // tiles/sec
+    private final float[] birdVy   = new float[BIRD_COUNT]; // tiles/sec
+    private final float[] birdPhase = new float[BIRD_COUNT];
+
     private int hoverTileX = -1;
     private int hoverTileY = -1;
     private boolean buildPreviewActive;
@@ -81,6 +94,17 @@ public class Renderer2D implements GameRenderer {
         this.textureCache = textureCache;
         this.inputController = inputController;
         this.placementValidator = new PlacementValidator();
+        java.util.Random bRng = new java.util.Random(7919L);
+        for (int i = 0; i < BIRD_COUNT; i++) {
+            birdTx[i]    = bRng.nextFloat() * 64f;
+            birdTy[i]    = bRng.nextFloat() * 64f;
+            birdPhase[i] = bRng.nextFloat() * 6.28f;
+            // General drift: mostly right/down-right with individual wobble
+            float baseAngle = 0.4f + (bRng.nextFloat() - 0.5f) * 0.8f;
+            float speed     = 1.2f + bRng.nextFloat() * 1.0f;
+            birdVx[i] = (float) Math.cos(baseAngle) * speed;
+            birdVy[i] = (float) Math.sin(baseAngle) * speed;
+        }
     }
 
     /** Returns how many screen pixels a tile at the given height should be lifted above the baseline. */
@@ -125,6 +149,7 @@ public class Renderer2D implements GameRenderer {
         GameState state = controller.getGameState();
         GameMap map = state.getMap();
         drawEdgeWalls(map);
+        drawGroundTextures(map);
         drawTileSurface(map);
         drawGridLines(map);
         drawDecorations(state);
@@ -132,6 +157,7 @@ public class Renderer2D implements GameRenderer {
         drawTownNames(state);
         drawBuildPreview(map);
         drawHoverHighlight(state);
+        drawBirds(delta, map.getWidth(), map.getHeight());
     }
 
     private static final String CAR_RIGHT_PATH      = "resources/car-right.png";
@@ -391,6 +417,53 @@ public class Renderer2D implements GameRenderer {
         return new Color(1f, 0.7f, 0.3f, 1f);
     }
 
+    private static final Color GROUND_FILL = new Color(0.32f, 0.52f, 0.20f, 1f);
+    private static final Color WATER_FILL  = new Color(0.22f, 0.52f, 0.80f, 1f);
+
+    /** Draws PNG textures for ground and water tiles (back-to-front, before cliffs). */
+    private void drawGroundTextures(GameMap map) {
+        // Pass 1 — solid diamonds via ShapeRenderer so there are zero pixel gaps.
+        // Any crack that slips through the texture will show the matching solid colour, not black.
+        shape.begin(ShapeRenderer.ShapeType.Filled);
+        for (int y = map.getHeight() - 1; y >= 0; y--) {
+            for (int x = 0; x < map.getWidth(); x++) {
+                Tile tile = map.getTile(x, y);
+                float sx = toScreenX(x, y);
+                float sy = toScreenY(x, y);
+                if (tile.getType() == TileType.EMPTY && tile.getHeight() == 1) {
+                    drawDiamond(sx, sy, GROUND_FILL);
+                } else if (tile.getType() == TileType.WATER) {
+                    drawDiamond(sx, sy, WATER_FILL);
+                }
+            }
+        }
+        shape.end();
+
+        // Pass 2 — texture on top for visual detail.
+        Texture groundTex = textureCache.get("resources/simpleground.png");
+        Texture waterTex  = textureCache.get("resources/waterr.png");
+        float gW = TILE_W, gH = gW * ((float) groundTex.getHeight() / groundTex.getWidth());
+        float wW = TILE_W, wH = wW * ((float) waterTex.getHeight()  / waterTex.getWidth());
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+        batch.setProjectionMatrix(camera.combined);
+        batch.begin();
+        for (int y = map.getHeight() - 1; y >= 0; y--) {
+            for (int x = 0; x < map.getWidth(); x++) {
+                Tile tile = map.getTile(x, y);
+                float sx = toScreenX(x, y);
+                float sy = toScreenY(x, y);
+                if (tile.getType() == TileType.EMPTY && tile.getHeight() == 1) {
+                    batch.draw(groundTex, sx - gW / 2f, sy, gW, gH);
+                } else if (tile.getType() == TileType.WATER) {
+                    batch.draw(waterTex,  sx - wW / 2f, sy, wW, wH);
+                }
+            }
+        }
+        batch.end();
+        Gdx.gl.glDisable(GL20.GL_BLEND);
+    }
+
     private void drawTileSurface(GameMap map) {
         shape.begin(ShapeRenderer.ShapeType.Filled);
         for (int y = map.getHeight() - 1; y >= 0; y--) {
@@ -416,6 +489,11 @@ public class Renderer2D implements GameRenderer {
                             cliffRightColor(tile.getType(), tile.getHeight()));
                 }
 
+                // Skip diamond for tiles drawn as textures in drawGroundTextures.
+                if ((tile.getType() == TileType.EMPTY && tile.getHeight() == 1)
+                        || tile.getType() == TileType.WATER) {
+                    continue;
+                }
                 drawDiamond(sx, sy + hOff, colorFor(tile.getType(), tile.getHeight(), x, y));
             }
         }
@@ -477,11 +555,18 @@ public class Renderer2D implements GameRenderer {
             return;
         }
 
-        // When a road decoration is selected, preview validity with green/red outline.
+        // Show green/red outline depending on whether the current action is valid on the hovered tile.
         Color outlineColor = HIGHLIGHT_COLOR;
         String selectedPath = inputController.getSelectedAssetPath();
+        BuildMode mode = inputController.getCurrentMode();
         if (selectedPath != null && EconomyConfig.isRoadDecoration(selectedPath)) {
             boolean valid = placementValidator.canBuildRoad(map, state, hoverTileX, hoverTileY);
+            outlineColor = valid ? HOVER_VALID : HOVER_INVALID;
+        } else if (mode == BuildMode.RAISE_TERRAIN) {
+            boolean valid = placementValidator.canRaiseTile(map, hoverTileX, hoverTileY);
+            outlineColor = valid ? HOVER_VALID : HOVER_INVALID;
+        } else if (mode == BuildMode.LOWER_TERRAIN) {
+            boolean valid = placementValidator.canLowerTile(map, hoverTileX, hoverTileY);
             outlineColor = valid ? HOVER_VALID : HOVER_INVALID;
         }
 
@@ -715,6 +800,35 @@ public class Renderer2D implements GameRenderer {
                 toScreenY(midTile, midTile),
                 0
         );
+    }
+
+    private void drawBirds(float delta, int mapW, int mapH) {
+        // Update positions
+        for (int i = 0; i < BIRD_COUNT; i++) {
+            birdTx[i] += birdVx[i] * delta;
+            birdTy[i] += birdVy[i] * delta;
+            if (birdTx[i] > mapW) birdTx[i] -= mapW;
+            if (birdTx[i] < 0)    birdTx[i] += mapW;
+            if (birdTy[i] > mapH) birdTy[i] -= mapH;
+            if (birdTy[i] < 0)    birdTy[i] += mapH;
+        }
+
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+        Gdx.gl.glLineWidth(1.5f);
+        shape.setProjectionMatrix(camera.combined);
+        shape.begin(ShapeRenderer.ShapeType.Line);
+        shape.setColor(0.12f, 0.10f, 0.08f, 0.80f);
+        for (int i = 0; i < BIRD_COUNT; i++) {
+            float sx = toScreenX(birdTx[i], birdTy[i]);
+            float sy = toScreenY(birdTx[i], birdTy[i]) + BIRD_ALTITUDE;
+            float flapY = (float) Math.sin(waterAnimTime * BIRD_FLAP_SPEED + birdPhase[i]) * BIRD_FLAP_AMP;
+            shape.line(sx - BIRD_WING, sy + flapY, sx, sy);
+            shape.line(sx, sy, sx + BIRD_WING, sy + flapY);
+        }
+        shape.end();
+        Gdx.gl.glLineWidth(1f);
+        Gdx.gl.glDisable(GL20.GL_BLEND);
     }
 
     @Override

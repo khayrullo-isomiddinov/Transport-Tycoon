@@ -88,6 +88,10 @@ public class AssetPaletteInputProcessor implements InputProcessor {
                 inputController.setCurrentMode(BuildMode.FOREST);
             } else if (toolIdx == 2) {
                 inputController.setCurrentMode(BuildMode.DEMOLISH);
+            } else if (toolIdx == 3) {
+                inputController.setCurrentMode(BuildMode.RAISE_TERRAIN);
+            } else if (toolIdx == 4) {
+                inputController.setCurrentMode(BuildMode.LOWER_TERRAIN);
             }
             palette.clearSelection();
             return true;

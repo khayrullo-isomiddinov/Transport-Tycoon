@@ -455,7 +455,7 @@ public final class RandomMapGenerator {
             int radius = 2 + rng.nextInt(6);
             paintNoisyCircle(map, rng, cx, cy, radius, TileType.FOREST);
         }
-        placeOnTypes(state, map, rng, new TileType[]{TileType.FOREST, TileType.EMPTY}, "resources/tree.png", 210, 0.16f);
+        placeOnTypes(state, map, rng, new TileType[]{TileType.FOREST}, "resources/tree.png", 600, 0.55f);
     }
 
     private static boolean nearRoad(GameMap map, int x, int y) {

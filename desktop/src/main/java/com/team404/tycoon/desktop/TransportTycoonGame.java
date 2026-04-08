@@ -91,7 +91,7 @@ public class TransportTycoonGame extends ApplicationAdapter {
         float delta = Gdx.graphics.getDeltaTime();
         gameController.update(delta);
         renderer.render(gameController, delta);
-        hudRenderer.render(assetPaletteState, decorationTextureCache, gameController.getGameState(), inputController.getCurrentMode(), inputController.isLastPlacementRejected());
+        hudRenderer.render(assetPaletteState, decorationTextureCache, gameController.getGameState(), inputController.getCurrentMode(), inputController.isLastPlacementRejected(), inputController.isLastTerraformRejected());
     }
 
     @Override

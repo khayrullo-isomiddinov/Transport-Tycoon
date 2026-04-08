@@ -27,10 +27,10 @@ public final class UiChrome {
     public static final float DROPDOWN_ITEM_H = 30f;
     public static final float DROPDOWN_GAP    = 8f;
 
-    /** Terrain tool buttons (Water / Forest / Demolish) at the left of the asset bar, after the dropdown. */
+    /** Terrain tool buttons (Water / Forest / Demolish / Raise / Lower) at the left of the asset bar, after the dropdown. */
     public static final float TOOL_BTN_SIZE = 44f;
     public static final float TOOL_BTN_GAP = 5f;
-    public static final int TOOL_BTN_COUNT = 3;
+    public static final int TOOL_BTN_COUNT = 5;
 
     /** True if the screen position is over the category dropdown button. GLFW coords (y down). */
     public static boolean isInDropdownButton(float screenX, float screenY) {

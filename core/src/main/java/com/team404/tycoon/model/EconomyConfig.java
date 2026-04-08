@@ -44,6 +44,12 @@ public final class EconomyConfig {
      */
     public static final long VEHICLE_MAINTENANCE_COST = 500L;
 
+    /**
+     * Cost to raise or lower a single tile's height by one level.
+     * Charged per click; rejected if the player cannot afford it.
+     */
+    public static final long TERRAFORM_COST = 2_000L;
+
     /** Revenue per passenger unit successfully delivered to its destination. */
     public static final int PASSENGER_UNIT_REVENUE = 50;
 

@@ -167,6 +167,20 @@ public class GameState {
         }
     }
 
+    /**
+     * Returns true when the horizontal direction currently has a green light at the given tile.
+     * Each traffic light gets a deterministic phase offset derived from its tile position so that
+     * intersections cycle independently rather than all switching at the same instant.
+     */
+    public boolean isTrafficLightGreenForHorizontal(int lx, int ly) {
+        float h = trafficLightHorizontalGreenSeconds;
+        float v = trafficLightVerticalGreenSeconds;
+        float cycle = h + v;
+        float phaseOffset = ((lx * 7 + ly * 13) & 0xFF) / 256f * cycle;
+        float t = (simulationTimeSeconds + phaseOffset) % cycle;
+        return t < h;
+    }
+
     public void addRoute(Route route) {
         if (findRouteById(route.getId()).isPresent()) {
             throw new IllegalArgumentException("Route id already exists: " + route.getId());

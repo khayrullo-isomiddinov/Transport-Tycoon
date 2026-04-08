@@ -96,17 +96,54 @@ class TransportSimulationTest {
         GameState state = new GameState(32, 32);
         state.addTown(new Town("A", 2, 5));
         state.addTown(new Town("B", 18, 5));
+        // Build a driveable road between the two towns so the vehicle would normally move.
+        // The traffic light at (10,5) is the only reason it should stop.
+        for (int x = 2; x <= 18; x++) {
+            if (x == 10) {
+                state.addDecoration(new PlacedDecoration(x, 5, "resources/trafficlights.png", 1, 1));
+            } else {
+                state.addDecoration(new PlacedDecoration(x, 5, "resources/highway-straight.png", 1, 1));
+            }
+        }
         state.addRoute(new Route("r-3", List.of(new RouteStop(0), new RouteStop(1))));
+        // Horizontal green = 1s, so at simulation time ~1.5s the horizontal direction is red.
         state.setTrafficLightDurations(1f, 10f);
 
         VehicleType bus = new VehicleType("Bus", 10, 8f, EnumSet.of(TransportContentType.PASSENGERS));
         Vehicle vehicle = new Vehicle("v-3", "r-3", bus, 0);
         state.addVehicle(vehicle);
-        state.addDecoration(new PlacedDecoration(10, 5, "resources/trafficlights.png", 1, 1));
 
         new GameController(state).update(1.5f);
 
         assertEquals(0f, vehicle.getLegProgressTiles(), 0.0001f, "Vehicle should remain stopped at red signal");
+    }
+
+    @Test
+    void vehicleMovesOnGreenTrafficLight() {
+        GameState state = new GameState(32, 32);
+        state.addTown(new Town("A", 2, 5));
+        state.addTown(new Town("B", 18, 5));
+        // Same road layout as the red-light test.
+        for (int x = 2; x <= 18; x++) {
+            if (x == 10) {
+                state.addDecoration(new PlacedDecoration(x, 5, "resources/trafficlights.png", 1, 1));
+            } else {
+                state.addDecoration(new PlacedDecoration(x, 5, "resources/highway-straight.png", 1, 1));
+            }
+        }
+        state.addRoute(new Route("r-green", List.of(new RouteStop(0), new RouteStop(1))));
+        // Horizontal green = 10s. With the phase offset for tile (10,5), the horizontal
+        // direction is green from the very start of the simulation, so a short update moves
+        // the vehicle rather than blocking it.
+        state.setTrafficLightDurations(10f, 1f);
+
+        VehicleType bus = new VehicleType("Bus", 10, 8f, EnumSet.of(TransportContentType.PASSENGERS));
+        Vehicle vehicle = new Vehicle("v-green", "r-green", bus, 0);
+        state.addVehicle(vehicle);
+
+        new GameController(state).update(0.1f);
+
+        assertTrue(vehicle.getLegProgressTiles() > 0f, "Vehicle should move when traffic light is green for its direction");
     }
 
     @Test

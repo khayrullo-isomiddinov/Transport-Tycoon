@@ -191,11 +191,15 @@ public class HudRenderer {
         String sel = palette.getSelectedPath() == null
                 ? "(pick a tile above)"
                 : palette.getSelectedPath().replace("resources/", "");
+        String lightHint = String.format(
+                "Light H:%.1fs V:%.1fs (Z/X C/V R)",
+                state.getTrafficLightHorizontalGreenSeconds(),
+                state.getTrafficLightVerticalGreenSeconds());
         font.getData().setScale(0.88f);
         font.setColor(0.50f, 0.52f, 0.58f, 1f);
         font.draw(batch,
                 "WASD/scroll: pan  |  Ctrl+scroll: zoom  |  LMB: place  |  RMB: remove  |  "
-                + "Garage: 1=bus 2=truck  |  Selected: " + sel,
+                + "Garage: 1=bus 2=truck  |  " + lightHint + "  |  Selected: " + sel,
                 10f, 16f);
         font.getData().setScale(1.0f);
         font.setColor(Color.WHITE);

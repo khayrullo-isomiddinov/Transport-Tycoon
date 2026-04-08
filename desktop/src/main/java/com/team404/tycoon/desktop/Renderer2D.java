@@ -153,6 +153,7 @@ public class Renderer2D implements GameRenderer {
         drawTileSurface(map);
         drawGridLines(map);
         drawDecorations(state);
+        drawTrafficLightOverlays(state);
         drawVehicles(state);
         drawTownNames(state);
         drawBuildPreview(map);
@@ -202,6 +203,58 @@ public class Renderer2D implements GameRenderer {
         }
 
         batch.end();
+        Gdx.gl.glDisable(GL20.GL_BLEND);
+    }
+
+    private static final Color TL_GREEN  = new Color(0.10f, 0.90f, 0.20f, 0.95f);
+    private static final Color TL_RED    = new Color(0.95f, 0.12f, 0.10f, 0.95f);
+    private static final Color TL_BORDER = new Color(0.05f, 0.05f, 0.05f, 0.85f);
+
+    /**
+     * Draws two small coloured circles above each placed traffic-light tile to show the
+     * current signal state: the left/upper circle for horizontal traffic, the right/lower
+     * circle for vertical traffic.  Green means go, red means stop.
+     */
+    private void drawTrafficLightOverlays(GameState state) {
+        java.util.List<int[]> lights = state.getTrafficLightTiles();
+        if (lights.isEmpty()) {
+            return;
+        }
+        GameMap tlMap = state.getMap();
+        final float DOT_R    = 4.5f;   // radius of each signal dot
+        final float DOT_GAP  = 2.5f;   // horizontal gap between dots
+        final float DOT_RISE = 22f;    // pixels above the tile top point
+
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+
+        shape.setProjectionMatrix(camera.combined);
+        shape.begin(ShapeRenderer.ShapeType.Filled);
+        for (int[] light : lights) {
+            int lx = light[0];
+            int ly = light[1];
+            float hOff = tlMap.isInBounds(lx, ly)
+                    ? heightOffset(tlMap.getTile(lx, ly).getHeight()) : 0f;
+            float cx = toScreenX(lx, ly);
+            float cy = toScreenY(lx, ly) + hOff + TILE_H + DOT_RISE;
+
+            boolean hGreen = state.isTrafficLightGreenForHorizontal(lx, ly);
+
+            // Horizontal dot (left)
+            float hDotX = cx - DOT_R - DOT_GAP * 0.5f;
+            shape.setColor(TL_BORDER);
+            shape.circle(hDotX, cy, DOT_R + 1.2f, 12);
+            shape.setColor(hGreen ? TL_GREEN : TL_RED);
+            shape.circle(hDotX, cy, DOT_R, 12);
+
+            // Vertical dot (right) — opposite phase
+            float vDotX = cx + DOT_R + DOT_GAP * 0.5f;
+            shape.setColor(TL_BORDER);
+            shape.circle(vDotX, cy, DOT_R + 1.2f, 12);
+            shape.setColor(hGreen ? TL_RED : TL_GREEN);
+            shape.circle(vDotX, cy, DOT_R, 12);
+        }
+        shape.end();
         Gdx.gl.glDisable(GL20.GL_BLEND);
     }
 

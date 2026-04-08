@@ -206,17 +206,8 @@ public final class TransportSimulation {
         return path.size() < 2;
     }
 
-    /**
-     * Each traffic light gets a deterministic phase offset derived from its tile position,
-     * so intersections cycle independently rather than all switching at the same instant.
-     */
     private static boolean isLightGreenForDirection(GameState state, int lx, int ly, boolean horizontal) {
-        float h = state.getTrafficLightHorizontalGreenSeconds();
-        float v = state.getTrafficLightVerticalGreenSeconds();
-        float cycle = h + v;
-        float phaseOffset = ((lx * 7 + ly * 13) & 0xFF) / 256f * cycle;
-        float t = (state.getSimulationTimeSeconds() + phaseOffset) % cycle;
-        return horizontal == (t < h);
+        return horizontal == state.isTrafficLightGreenForHorizontal(lx, ly);
     }
 
     private static boolean isNearLine(int lx, int ly, Town fromTown, Town toTown) {

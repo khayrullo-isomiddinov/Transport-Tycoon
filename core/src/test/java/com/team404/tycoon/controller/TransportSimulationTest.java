@@ -428,6 +428,31 @@ class TransportSimulationTest {
         assertTrue(tile5Rejected, "Tile at height 4 adjacent to height-2 road must be rejected");
     }
 
+    @Test
+    void vehiclesBehindDoNotPassThroughVehiclesAhead() {
+        GameState state = new GameState(32, 32);
+        state.addTown(new Town("A", 2, 5));
+        state.addTown(new Town("B", 20, 5));
+        paintHorizontalRoad(state, 2, 20, 5);
+        state.addRoute(new Route("r-coll", List.of(new RouteStop(0), new RouteStop(1))));
+
+        VehicleType bus = new VehicleType("Bus", 10, 8f, EnumSet.of(TransportContentType.PASSENGERS));
+        // Place vehicle A ahead of vehicle B on the same leg.
+        Vehicle ahead  = new Vehicle("v-ahead",  "r-coll", bus, 0);
+        Vehicle behind = new Vehicle("v-behind", "r-coll", bus, 0);
+        ahead.setLegProgressTiles(5f);
+        behind.setLegProgressTiles(0f);
+        state.addVehicle(ahead);
+        state.addVehicle(behind);
+
+        new GameController(state).update(2.0f);
+
+        float gap = ahead.getLegProgressTiles() - behind.getLegProgressTiles();
+        assertTrue(gap >= TransportSimulation.MIN_FOLLOWING_DISTANCE - 0.01f,
+                "Vehicles must keep at least MIN_FOLLOWING_DISTANCE gap, got: " + gap);
+        assertTrue(behind.getLegProgressTiles() >= 0f, "Behind vehicle must not go negative");
+    }
+
     private static void paintHorizontalRoad(GameState state, int fromX, int toX, int y) {
         int minX = Math.min(fromX, toX);
         int maxX = Math.max(fromX, toX);

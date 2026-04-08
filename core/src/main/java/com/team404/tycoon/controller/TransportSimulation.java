@@ -21,6 +21,7 @@ public final class TransportSimulation {
     static final float MIN_TRAVEL_DISTANCE = 1f;
     static final float MAINTENANCE_INTERVAL_SECONDS = 120f;
     private static final float GLOBAL_VEHICLE_SPEED_MULTIPLIER = 0.5f;
+    static final float MIN_FOLLOWING_DISTANCE = 1.5f;
 
     private TransportSimulation() {
     }
@@ -46,6 +47,7 @@ public final class TransportSimulation {
             if (mustStopForMissingRoadConnection(state, route, vehicle) || mustStopForRedLight(state, route, vehicle)) {
                 movedTiles = 0f;
             }
+            movedTiles = Math.min(movedTiles, maxMoveBeforeVehicleAhead(state, route, vehicle));
             processMovement(state, route, vehicle, movedTiles);
         }
     }
@@ -208,6 +210,42 @@ public final class TransportSimulation {
 
     private static boolean isLightGreenForDirection(GameState state, int lx, int ly, boolean horizontal) {
         return horizontal == state.isTrafficLightGreenForHorizontal(lx, ly);
+    }
+
+    /**
+     * Returns how many tiles this vehicle may move before it would be closer than
+     * MIN_FOLLOWING_DISTANCE to the nearest vehicle directly ahead of it on the same
+     * route leg.  Returns Float.MAX_VALUE when there is no vehicle blocking ahead.
+     */
+    private static float maxMoveBeforeVehicleAhead(GameState state, Route route, Vehicle vehicle) {
+        int stopCount = route.getStopCount();
+        int myStop = vehicle.getCurrentStopIndex() % stopCount;
+        float myProgress = vehicle.getLegProgressTiles();
+
+        float closestGap = Float.MAX_VALUE;
+        for (Vehicle other : state.getVehiclesMutable()) {
+            if (other == vehicle) {
+                continue;
+            }
+            if (!other.getRouteId().equals(route.getId())) {
+                continue;
+            }
+            if (other.getCurrentStopIndex() % stopCount != myStop) {
+                continue;
+            }
+            float otherProgress = other.getLegProgressTiles();
+            if (otherProgress > myProgress) {
+                float gap = otherProgress - myProgress;
+                if (gap < closestGap) {
+                    closestGap = gap;
+                }
+            }
+        }
+
+        if (closestGap == Float.MAX_VALUE) {
+            return Float.MAX_VALUE;
+        }
+        return Math.max(0f, closestGap - MIN_FOLLOWING_DISTANCE);
     }
 
     private static boolean isNearLine(int lx, int ly, Town fromTown, Town toTown) {

@@ -206,14 +206,17 @@ public class Renderer2D implements GameRenderer {
         Gdx.gl.glDisable(GL20.GL_BLEND);
     }
 
-    private static final Color TL_GREEN  = new Color(0.10f, 0.90f, 0.20f, 0.95f);
-    private static final Color TL_RED    = new Color(0.95f, 0.12f, 0.10f, 0.95f);
-    private static final Color TL_BORDER = new Color(0.05f, 0.05f, 0.05f, 0.85f);
+    private static final Color TL_GREEN      = new Color(0.10f, 0.90f, 0.20f, 0.95f);
+    private static final Color TL_RED        = new Color(0.95f, 0.12f, 0.10f, 0.95f);
+    private static final Color TL_DIM_GREEN  = new Color(0.04f, 0.22f, 0.06f, 0.80f);
+    private static final Color TL_DIM_RED    = new Color(0.22f, 0.03f, 0.03f, 0.80f);
+    private static final Color TL_HOUSING    = new Color(0.08f, 0.08f, 0.08f, 0.92f);
 
     /**
-     * Draws two small coloured circles above each placed traffic-light tile to show the
-     * current signal state: the left/upper circle for horizontal traffic, the right/lower
-     * circle for vertical traffic.  Green means go, red means stop.
+     * Draws a small traffic-light housing (dark box) with a red bulb on top and a green
+     * bulb on the bottom above each placed traffic-light tile.  Only the active bulb is
+     * lit; the other is dark, exactly like a real traffic light.
+     * The horizontal direction is used as the reference signal for the overlay.
      */
     private void drawTrafficLightOverlays(GameState state) {
         java.util.List<int[]> lights = state.getTrafficLightTiles();
@@ -221,9 +224,13 @@ public class Renderer2D implements GameRenderer {
             return;
         }
         GameMap tlMap = state.getMap();
-        final float DOT_R    = 4.5f;   // radius of each signal dot
-        final float DOT_GAP  = 2.5f;   // horizontal gap between dots
-        final float DOT_RISE = 22f;    // pixels above the tile top point
+        final float DOT_R    = 4.0f;
+        final float DOT_GAP  = 3.0f;   // vertical gap between the two bulbs
+        final float DOT_RISE = 18f;     // pixels above the tile top point
+        final float PAD      = 2.5f;    // housing padding around bulbs
+
+        float housingW = (DOT_R + PAD) * 2f;
+        float housingH = DOT_R * 2f + DOT_GAP + DOT_R * 2f + PAD * 2f;
 
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
@@ -236,23 +243,23 @@ public class Renderer2D implements GameRenderer {
             float hOff = tlMap.isInBounds(lx, ly)
                     ? heightOffset(tlMap.getTile(lx, ly).getHeight()) : 0f;
             float cx = toScreenX(lx, ly);
-            float cy = toScreenY(lx, ly) + hOff + TILE_H + DOT_RISE;
+            float baseY = toScreenY(lx, ly) + hOff + TILE_H + DOT_RISE;
 
             boolean hGreen = state.isTrafficLightGreenForHorizontal(lx, ly);
 
-            // Horizontal dot (left)
-            float hDotX = cx - DOT_R - DOT_GAP * 0.5f;
-            shape.setColor(TL_BORDER);
-            shape.circle(hDotX, cy, DOT_R + 1.2f, 12);
-            shape.setColor(hGreen ? TL_GREEN : TL_RED);
-            shape.circle(hDotX, cy, DOT_R, 12);
+            // Dark housing box
+            shape.setColor(TL_HOUSING);
+            shape.rect(cx - housingW / 2f, baseY, housingW, housingH);
 
-            // Vertical dot (right) — opposite phase
-            float vDotX = cx + DOT_R + DOT_GAP * 0.5f;
-            shape.setColor(TL_BORDER);
-            shape.circle(vDotX, cy, DOT_R + 1.2f, 12);
-            shape.setColor(hGreen ? TL_RED : TL_GREEN);
-            shape.circle(vDotX, cy, DOT_R, 12);
+            // Green bulb (bottom) — lit when horizontal has green
+            float greenCY = baseY + PAD + DOT_R;
+            shape.setColor(hGreen ? TL_GREEN : TL_DIM_GREEN);
+            shape.circle(cx, greenCY, DOT_R, 12);
+
+            // Red bulb (top) — lit when horizontal has red
+            float redCY = greenCY + DOT_R + DOT_GAP + DOT_R;
+            shape.setColor(hGreen ? TL_DIM_RED : TL_RED);
+            shape.circle(cx, redCY, DOT_R, 12);
         }
         shape.end();
         Gdx.gl.glDisable(GL20.GL_BLEND);

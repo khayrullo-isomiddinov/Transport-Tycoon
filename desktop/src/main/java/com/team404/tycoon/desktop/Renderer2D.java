@@ -419,6 +419,8 @@ public class Renderer2D implements GameRenderer {
 
     private static final Color GROUND_FILL = new Color(0.32f, 0.52f, 0.20f, 1f);
     private static final Color WATER_FILL  = new Color(0.22f, 0.52f, 0.80f, 1f);
+    private static final Color FOREST_FILL = new Color(0.12f, 0.38f, 0.10f, 1f);
+    private static final Color CITY_FILL   = new Color(0.55f, 0.55f, 0.55f, 1f);
 
     /** Draws PNG textures for ground and water tiles (back-to-front, before cliffs). */
     private void drawGroundTextures(GameMap map) {
@@ -434,16 +436,24 @@ public class Renderer2D implements GameRenderer {
                     drawDiamond(sx, sy, GROUND_FILL);
                 } else if (tile.getType() == TileType.WATER) {
                     drawDiamond(sx, sy, WATER_FILL);
+                } else if (tile.getType() == TileType.FOREST) {
+                    drawDiamond(sx, sy, FOREST_FILL);
+                } else if (tile.getType() == TileType.CITY) {
+                    drawDiamond(sx, sy, CITY_FILL);
                 }
             }
         }
         shape.end();
 
         // Pass 2 — texture on top for visual detail.
-        Texture groundTex = textureCache.get("resources/simpleground.png");
-        Texture waterTex  = textureCache.get("resources/waterr.png");
+        Texture groundTex  = textureCache.get("resources/simpleground.png");
+        Texture waterTex   = textureCache.get("resources/waterr.png");
+        Texture forestTex  = textureCache.get("resources/forest.png");
+        Texture cityTex    = textureCache.get("resources/groundgrey.png");
         float gW = TILE_W, gH = gW * ((float) groundTex.getHeight() / groundTex.getWidth());
         float wW = TILE_W, wH = wW * ((float) waterTex.getHeight()  / waterTex.getWidth());
+        float fW = TILE_W, fH = fW * ((float) forestTex.getHeight() / forestTex.getWidth());
+        float cW = TILE_W, cH = cW * ((float) cityTex.getHeight()   / cityTex.getWidth());
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         batch.setProjectionMatrix(camera.combined);
@@ -457,6 +467,10 @@ public class Renderer2D implements GameRenderer {
                     batch.draw(groundTex, sx - gW / 2f, sy, gW, gH);
                 } else if (tile.getType() == TileType.WATER) {
                     batch.draw(waterTex,  sx - wW / 2f, sy, wW, wH);
+                } else if (tile.getType() == TileType.FOREST) {
+                    batch.draw(forestTex, sx - fW / 2f, sy, fW, fH);
+                } else if (tile.getType() == TileType.CITY) {
+                    batch.draw(cityTex,   sx - cW / 2f, sy, cW, cH);
                 }
             }
         }
@@ -491,7 +505,9 @@ public class Renderer2D implements GameRenderer {
 
                 // Skip diamond for tiles drawn as textures in drawGroundTextures.
                 if ((tile.getType() == TileType.EMPTY && tile.getHeight() == 1)
-                        || tile.getType() == TileType.WATER) {
+                        || tile.getType() == TileType.WATER
+                        || tile.getType() == TileType.FOREST
+                        || tile.getType() == TileType.CITY) {
                     continue;
                 }
                 drawDiamond(sx, sy + hOff, colorFor(tile.getType(), tile.getHeight(), x, y));

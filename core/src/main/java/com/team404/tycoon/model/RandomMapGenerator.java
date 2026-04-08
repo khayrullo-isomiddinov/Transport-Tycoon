@@ -102,13 +102,19 @@ public final class RandomMapGenerator {
             }
         }
 
-        // Scatter a few mountain blobs.  The outer ring is foothills (height 2)
-        // and the inner core is peaks (height 3).
-        int mountains = Math.max(3, (map.getWidth() * map.getHeight()) / 600);
+        // Only 1-2 small mountain blobs, placed near map edges so they don't
+        // interfere with roads or towns in the playable center area.
+        int mountains = 1 + rng.nextInt(2);
+        int edgeMargin = Math.max(4, Math.min(map.getWidth(), map.getHeight()) / 5);
         for (int i = 0; i < mountains; i++) {
-            int cx = rng.nextInt(map.getWidth());
-            int cy = rng.nextInt(map.getHeight());
-            int outerRadius = 3 + rng.nextInt(5);
+            int cx, cy;
+            switch (rng.nextInt(4)) {
+                case 0:  cx = rng.nextInt(map.getWidth());                       cy = rng.nextInt(edgeMargin); break;
+                case 1:  cx = rng.nextInt(map.getWidth());                       cy = map.getHeight() - 1 - rng.nextInt(edgeMargin); break;
+                case 2:  cx = rng.nextInt(edgeMargin);                           cy = rng.nextInt(map.getHeight()); break;
+                default: cx = map.getWidth() - 1 - rng.nextInt(edgeMargin);     cy = rng.nextInt(map.getHeight()); break;
+            }
+            int outerRadius = 2 + rng.nextInt(3);
             int innerRadius = Math.max(1, outerRadius / 2);
             for (int ty = cy - outerRadius; ty <= cy + outerRadius; ty++) {
                 for (int tx = cx - outerRadius; tx <= cx + outerRadius; tx++) {

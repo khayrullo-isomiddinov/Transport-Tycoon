@@ -37,7 +37,7 @@ public class TransportTycoonGame extends ApplicationAdapter {
         List<String> pngPaths = listPngResourcePaths();
         this.assetPaletteState = new AssetPaletteState(pngPaths);
 
-        Renderer2D renderer2D = new Renderer2D(decorationTextureCache);
+        Renderer2D renderer2D = new Renderer2D(decorationTextureCache, inputController);
         this.renderer = renderer2D;
         this.hudRenderer = new HudRenderer();
 
@@ -91,7 +91,7 @@ public class TransportTycoonGame extends ApplicationAdapter {
         float delta = Gdx.graphics.getDeltaTime();
         gameController.update(delta);
         renderer.render(gameController, delta);
-        hudRenderer.render(assetPaletteState, decorationTextureCache, gameController.getGameState(), inputController.getCurrentMode());
+        hudRenderer.render(assetPaletteState, decorationTextureCache, gameController.getGameState(), inputController.getCurrentMode(), inputController.isLastPlacementRejected());
     }
 
     @Override

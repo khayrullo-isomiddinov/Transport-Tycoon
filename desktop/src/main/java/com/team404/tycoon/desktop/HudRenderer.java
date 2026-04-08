@@ -53,7 +53,7 @@ public class HudRenderer {
         font.setColor(Color.WHITE);
     }
 
-    public void render(AssetPaletteState palette, DecorationTextureCache cache, GameState state, BuildMode currentMode) {
+    public void render(AssetPaletteState palette, DecorationTextureCache cache, GameState state, BuildMode currentMode, boolean terrainTooSteep) {
         float w = Gdx.graphics.getWidth();
         float h = Gdx.graphics.getHeight();
         float visible  = UiChrome.assetContentWidth(w);
@@ -87,6 +87,9 @@ public class HudRenderer {
 
         if (state.isBankrupt()) {
             drawBankruptOverlay(w, h);
+        }
+        if (terrainTooSteep) {
+            drawTerrainTooSteepWarning(w, h);
         }
     }
 
@@ -193,6 +196,35 @@ public class HudRenderer {
                 10f, 16f);
         font.getData().setScale(1.0f);
         font.setColor(Color.WHITE);
+    }
+
+    // ── terrain too steep toast ───────────────────────────────────────────────
+
+    private static final Color STEEP_BG   = new Color(0.75f, 0.10f, 0.05f, 0.90f);
+    private static final Color STEEP_TEXT = new Color(1f,    0.92f, 0.85f, 1f);
+
+    private void drawTerrainTooSteepWarning(float w, float h) {
+        String msg = "Terrain too steep — road cannot be built here!";
+        float panelH = 38f;
+        float panelY = UiChrome.totalTopHeight() + 6f;
+
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+        shape.begin(ShapeRenderer.ShapeType.Filled);
+        shape.setColor(STEEP_BG);
+        shape.rect(0, h - panelY - panelH, w, panelH);
+        shape.end();
+        Gdx.gl.glDisable(GL20.GL_BLEND);
+
+        batch.setProjectionMatrix(hudCamera.combined);
+        batch.begin();
+        font.getData().setScale(1.1f);
+        glyphLayout.setText(font, msg);
+        font.setColor(STEEP_TEXT);
+        font.draw(batch, msg, w / 2f - glyphLayout.width / 2f, h - panelY - panelH + panelH * 0.65f);
+        font.getData().setScale(1f);
+        font.setColor(Color.WHITE);
+        batch.end();
     }
 
     // ── bankruptcy overlay ────────────────────────────────────────────────────

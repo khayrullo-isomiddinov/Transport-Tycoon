@@ -17,6 +17,12 @@ public class InputController {
     /** When set, LMB places this PNG decoration instead of painting terrain. */
     private String selectedAssetPath;
     private TransportContentType garagePurchaseContentType = TransportContentType.GOODS;
+    /**
+     * Set to true when the most recent primary-click road placement was rejected due to
+     * a terrain height difference that is too steep.  Cleared at the start of each click.
+     * The renderer or HUD can read this to show feedback to the player.
+     */
+    private boolean lastPlacementRejected;
 
     public InputController(GameController gameController) {
         this.gameController = gameController;
@@ -51,7 +57,12 @@ public class InputController {
         clearSelectedAssetPath();
     }
 
+    public boolean isLastPlacementRejected() {
+        return lastPlacementRejected;
+    }
+
     public void onPrimaryClick(int tileX, int tileY) {
+        lastPlacementRejected = false;
         GameState state = gameController.getGameState();
         if (state.isBankrupt()) {
             return;
@@ -69,6 +80,11 @@ public class InputController {
         PlacedDecoration dec = new PlacedDecoration(
                 tileX, tileY, selectedAssetPath, fp[0], fp[1]);
         if (!state.canPlaceDecoration(map, dec)) {
+            return;
+        }
+        if (EconomyConfig.isRoadDecoration(selectedAssetPath)
+                && !placementValidator.canBuildRoad(map, state, tileX, tileY)) {
+            lastPlacementRejected = true;
             return;
         }
         if (EconomyConfig.isRoadDecoration(selectedAssetPath)

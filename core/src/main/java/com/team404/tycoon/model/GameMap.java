@@ -58,7 +58,9 @@ public class GameMap {
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
                 Tile original = tiles[y][x];
-                copy[y][x] = new Tile(original.getX(), original.getY(), original.getType());
+                Tile copied = new Tile(original.getX(), original.getY(), original.getType());
+                copied.setHeight(original.getHeight());
+                copy[y][x] = copied;
             }
         }
         return copy;

@@ -24,6 +24,7 @@ public final class RandomMapGenerator {
 
         paintWater(map, rng);
         paintForests(map, rng);
+        generateHeights(map, rng);
         generateTowns(state, map, rng);
         connectTownRoadNetwork(state, map);
         pruneDeadEndRoads(map);
@@ -85,6 +86,65 @@ public final class RandomMapGenerator {
         }
     }
 
+    /**
+     * Assigns terrain heights to all map tiles.
+     * Water stays at height 0. A handful of mountain blobs raise tiles to
+     * height 2 (foothills) and height 3 (peaks). Everything else is height 1 (flat).
+     * Town areas are later flattened back to 1 so they are always reachable.
+     */
+    private static void generateHeights(GameMap map, Random rng) {
+        // Water tiles are valleys (height 0).
+        for (int y = 0; y < map.getHeight(); y++) {
+            for (int x = 0; x < map.getWidth(); x++) {
+                if (map.getTile(x, y).getType() == TileType.WATER) {
+                    map.getTile(x, y).setHeight(0);
+                }
+            }
+        }
+
+        // Scatter a few mountain blobs.  The outer ring is foothills (height 2)
+        // and the inner core is peaks (height 3).
+        int mountains = Math.max(3, (map.getWidth() * map.getHeight()) / 600);
+        for (int i = 0; i < mountains; i++) {
+            int cx = rng.nextInt(map.getWidth());
+            int cy = rng.nextInt(map.getHeight());
+            int outerRadius = 3 + rng.nextInt(5);
+            int innerRadius = Math.max(1, outerRadius / 2);
+            for (int ty = cy - outerRadius; ty <= cy + outerRadius; ty++) {
+                for (int tx = cx - outerRadius; tx <= cx + outerRadius; tx++) {
+                    if (!map.isInBounds(tx, ty)) {
+                        continue;
+                    }
+                    if (map.getTile(tx, ty).getType() == TileType.WATER) {
+                        continue;
+                    }
+                    int dx = tx - cx;
+                    int dy = ty - cy;
+                    float d = (float) Math.sqrt(dx * dx + dy * dy);
+                    if (d <= innerRadius) {
+                        map.getTile(tx, ty).setHeight(3);
+                    } else if (d <= outerRadius) {
+                        // Only raise to foothills if not already a peak.
+                        if (map.getTile(tx, ty).getHeight() < 2) {
+                            map.getTile(tx, ty).setHeight(2);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /** Sets every tile in a rectangular area to the given height (if in bounds). */
+    private static void flattenAreaToHeight(GameMap map, int cx, int cy, int radius, int height) {
+        for (int y = cy - radius; y <= cy + radius; y++) {
+            for (int x = cx - radius; x <= cx + radius; x++) {
+                if (map.isInBounds(x, y)) {
+                    map.getTile(x, y).setHeight(height);
+                }
+            }
+        }
+    }
+
     private static void paintRoadTile(GameMap map, int x, int y) {
         if (!map.isInBounds(x, y)) {
             return;
@@ -106,6 +166,8 @@ public final class RandomMapGenerator {
             int half = 3 + rng.nextInt(3); // smaller towns: roughly 7..11
             int block = 2; // cleaner, denser roads
             layTownRoadGrid(map, rng, cx, cy, half, block);
+            // Flatten the town footprint so players can always reach it from flat terrain.
+            flattenAreaToHeight(map, cx, cy, half + 2, 1);
             // Ensure the "town center" is always on land and driveable.
             paintRoadTile(map, cx, cy);
             placeTownBuildings(state, map, rng, cx, cy, half);

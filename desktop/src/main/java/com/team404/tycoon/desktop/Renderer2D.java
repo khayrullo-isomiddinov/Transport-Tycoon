@@ -11,8 +11,11 @@ import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.team404.tycoon.controller.GameController;
+import com.team404.tycoon.controller.InputController;
+import com.team404.tycoon.controller.PlacementValidator;
 import com.team404.tycoon.desktop.assets.DecorationMetadata;
 import com.team404.tycoon.desktop.assets.DecorationTextureCache;
+import com.team404.tycoon.model.EconomyConfig;
 import com.team404.tycoon.model.GameMap;
 import com.team404.tycoon.model.GameState;
 import com.team404.tycoon.model.PlacedDecoration;
@@ -35,7 +38,9 @@ public class Renderer2D implements GameRenderer {
     public static final float TILE_W = 64f;
     public static final float TILE_H = 32f;
     private static final float EDGE_DEPTH = 16f;
-    private static final Color EDGE_LEFT = new Color(0.15f, 0.30f, 0.10f, 1f);
+    /** Screen-pixel lift per height unit above flat (H:1). H:2 = +16 px, H:3 = +32 px. */
+    private static final float HEIGHT_STEP = TILE_H * 0.5f;
+    private static final Color EDGE_LEFT  = new Color(0.15f, 0.30f, 0.10f, 1f);
     private static final Color EDGE_RIGHT = new Color(0.10f, 0.22f, 0.08f, 1f);
     private static final Color GRID_COLOR = new Color(0f, 0f, 0f, 0.12f);
     private static final Color HIGHLIGHT_COLOR = new Color(1f, 1f, 0.3f, 0.85f);
@@ -45,12 +50,17 @@ public class Renderer2D implements GameRenderer {
     private static final float MIN_ZOOM = 0.3f;
     private static final float MAX_ZOOM = 2f;
 
+    private static final Color HOVER_VALID   = new Color(0.30f, 1f,    0.30f, 0.90f);
+    private static final Color HOVER_INVALID = new Color(1f,    0.18f, 0.10f, 0.95f);
+
     private final OrthographicCamera camera;
     private final ShapeRenderer shape;
     private final SpriteBatch batch;
     private final BitmapFont font;
     private final GlyphLayout glyphLayout;
     private final DecorationTextureCache textureCache;
+    private final InputController inputController;
+    private final PlacementValidator placementValidator;
     private float waterAnimTime;
 
     private int hoverTileX = -1;
@@ -62,13 +72,20 @@ public class Renderer2D implements GameRenderer {
     private int buildPreviewEndX;
     private int buildPreviewEndY;
 
-    public Renderer2D(DecorationTextureCache textureCache) {
+    public Renderer2D(DecorationTextureCache textureCache, InputController inputController) {
         this.camera = new OrthographicCamera();
         this.shape = new ShapeRenderer();
         this.batch = new SpriteBatch();
         this.font = new BitmapFont();
         this.glyphLayout = new GlyphLayout();
         this.textureCache = textureCache;
+        this.inputController = inputController;
+        this.placementValidator = new PlacementValidator();
+    }
+
+    /** Returns how many screen pixels a tile at the given height should be lifted above the baseline. */
+    private static float heightOffset(int height) {
+        return Math.max(0, height - 1) * HEIGHT_STEP;
     }
 
     public void setHoverTile(int tileX, int tileY) {
@@ -114,7 +131,7 @@ public class Renderer2D implements GameRenderer {
         drawVehicles(state);
         drawTownNames(state);
         drawBuildPreview(map);
-        drawHoverHighlight(map);
+        drawHoverHighlight(state);
     }
 
     private static final String CAR_RIGHT_PATH      = "resources/car-right.png";
@@ -137,6 +154,7 @@ public class Renderer2D implements GameRenderer {
         batch.setProjectionMatrix(camera.combined);
         batch.setColor(Color.WHITE);
 
+        GameMap decMap = state.getMap();
         for (PlacedDecoration d : list) {
             Texture tex = textureCache.get(d.getResourcePath());
             int fw = d.getFootprintTilesW();
@@ -150,8 +168,9 @@ public class Renderer2D implements GameRenderer {
 
             int ax = d.getAnchorTileX();
             int ay = d.getAnchorTileY();
+            float hOff = decMap.isInBounds(ax, ay) ? heightOffset(decMap.getTile(ax, ay).getHeight()) : 0f;
             float sx = toScreenX(ax, ay);
-            float sy = toScreenY(ax, ay);
+            float sy = toScreenY(ax, ay) + hOff;
             float by = sy + TILE_H / 2f + DecorationMetadata.groundYOffset(d.getResourcePath(), drawH);
             batch.draw(tex, sx - drawW / 2f, by, drawW, drawH);
         }
@@ -256,10 +275,13 @@ public class Renderer2D implements GameRenderer {
         batch.begin();
         batch.setProjectionMatrix(camera.combined);
 
+        GameMap nameMap = state.getMap();
         for (int i = 0; i < state.getTowns().size(); i++) {
             Town t = state.getTowns().get(i);
+            float hOff = nameMap.isInBounds(t.getCenterX(), t.getCenterY())
+                    ? heightOffset(nameMap.getTile(t.getCenterX(), t.getCenterY()).getHeight()) : 0f;
             float sx = toScreenX(t.getCenterX(), t.getCenterY());
-            float sy = toScreenY(t.getCenterX(), t.getCenterY());
+            float sy = toScreenY(t.getCenterX(), t.getCenterY()) + hOff;
             String name = t.getName();
             glyphLayout.setText(font, name);
             float x = sx - glyphLayout.width * 0.5f;
@@ -376,10 +398,68 @@ public class Renderer2D implements GameRenderer {
                 Tile tile = map.getTile(x, y);
                 float sx = toScreenX(x, y);
                 float sy = toScreenY(x, y);
-                drawDiamond(sx, sy, colorFor(tile.getType(), x, y));
+                float hOff = heightOffset(tile.getHeight());
+
+                // Left cliff — when this tile is higher than its (x-1, y) neighbour.
+                float leftOff = map.isInBounds(x - 1, y)
+                        ? heightOffset(map.getTile(x - 1, y).getHeight()) : 0f;
+                if (hOff > leftOff) {
+                    drawLeftCliff(sx, sy + hOff, hOff - leftOff,
+                            cliffLeftColor(tile.getType(), tile.getHeight()));
+                }
+
+                // Right cliff — when this tile is higher than its (x, y-1) neighbour.
+                float rightOff = map.isInBounds(x, y - 1)
+                        ? heightOffset(map.getTile(x, y - 1).getHeight()) : 0f;
+                if (hOff > rightOff) {
+                    drawRightCliff(sx, sy + hOff, hOff - rightOff,
+                            cliffRightColor(tile.getType(), tile.getHeight()));
+                }
+
+                drawDiamond(sx, sy + hOff, colorFor(tile.getType(), tile.getHeight(), x, y));
             }
         }
         shape.end();
+    }
+
+    /** Left (south-west-facing) cliff face between a raised tile and its lower-left neighbour. */
+    private void drawLeftCliff(float sx, float topSy, float drop, Color color) {
+        float hw = TILE_W / 2f;
+        float hh = TILE_H / 2f;
+        shape.setColor(color);
+        // parallelogram: left edge of surface down to left edge of lower tile
+        shape.triangle(sx - hw, topSy + hh, sx, topSy, sx, topSy - drop);
+        shape.triangle(sx - hw, topSy + hh, sx, topSy - drop, sx - hw, topSy + hh - drop);
+    }
+
+    /** Right (south-east-facing) cliff face between a raised tile and its lower-right neighbour. */
+    private void drawRightCliff(float sx, float topSy, float drop, Color color) {
+        float hw = TILE_W / 2f;
+        float hh = TILE_H / 2f;
+        shape.setColor(color);
+        // parallelogram: right edge of surface down to right edge of lower tile
+        shape.triangle(sx, topSy, sx + hw, topSy + hh, sx + hw, topSy + hh - drop);
+        shape.triangle(sx, topSy, sx + hw, topSy + hh - drop, sx, topSy - drop);
+    }
+
+    private static Color cliffLeftColor(TileType type, int height) {
+        if (height >= 3) {
+            return new Color(0.40f, 0.32f, 0.20f, 1f); // rocky, lit
+        }
+        if (height == 2) {
+            return new Color(0.18f, 0.32f, 0.10f, 1f); // hillside, lit
+        }
+        return EDGE_LEFT;
+    }
+
+    private static Color cliffRightColor(TileType type, int height) {
+        if (height >= 3) {
+            return new Color(0.28f, 0.22f, 0.12f, 1f); // rocky, shadow
+        }
+        if (height == 2) {
+            return new Color(0.12f, 0.22f, 0.07f, 1f); // hillside, shadow
+        }
+        return EDGE_RIGHT;
     }
 
     private void drawDiamond(float sx, float sy, Color color) {
@@ -391,13 +471,23 @@ public class Renderer2D implements GameRenderer {
         shape.triangle(sx, by + TILE_H, sx + hw, by + hh, sx, by);
     }
 
-    private void drawHoverHighlight(GameMap map) {
+    private void drawHoverHighlight(GameState state) {
+        GameMap map = state.getMap();
         if (!map.isInBounds(hoverTileX, hoverTileY)) {
             return;
         }
 
+        // When a road decoration is selected, preview validity with green/red outline.
+        Color outlineColor = HIGHLIGHT_COLOR;
+        String selectedPath = inputController.getSelectedAssetPath();
+        if (selectedPath != null && EconomyConfig.isRoadDecoration(selectedPath)) {
+            boolean valid = placementValidator.canBuildRoad(map, state, hoverTileX, hoverTileY);
+            outlineColor = valid ? HOVER_VALID : HOVER_INVALID;
+        }
+
+        float hOff = heightOffset(map.getTile(hoverTileX, hoverTileY).getHeight());
         float sx = toScreenX(hoverTileX, hoverTileY);
-        float sy = toScreenY(hoverTileX, hoverTileY);
+        float sy = toScreenY(hoverTileX, hoverTileY) + hOff;
         float hw = TILE_W / 2f;
         float hh = TILE_H / 2f;
         float by = sy + hh;
@@ -407,7 +497,7 @@ public class Renderer2D implements GameRenderer {
 
         Gdx.gl.glLineWidth(2f);
         shape.begin(ShapeRenderer.ShapeType.Line);
-        shape.setColor(HIGHLIGHT_COLOR);
+        shape.setColor(outlineColor);
         shape.line(sx, by + TILE_H, sx - hw, by + hh);
         shape.line(sx - hw, by + hh, sx, by);
         shape.line(sx, by, sx + hw, by + hh);
@@ -417,6 +507,7 @@ public class Renderer2D implements GameRenderer {
 
         Gdx.gl.glDisable(GL20.GL_BLEND);
     }
+
 
     private void drawBuildPreview(GameMap map) {
         if (!buildPreviewActive) {
@@ -442,8 +533,9 @@ public class Renderer2D implements GameRenderer {
                 if (!map.isInBounds(x, y)) {
                     continue;
                 }
+                float hOff = heightOffset(map.getTile(x, y).getHeight());
                 float sx = toScreenX(x, y);
-                float sy = toScreenY(x, y);
+                float sy = toScreenY(x, y) + hOff;
                 float hw = TILE_W / 2f;
                 float hh = TILE_H / 2f;
                 float by = sy + hh;
@@ -504,16 +596,18 @@ public class Renderer2D implements GameRenderer {
 
         shape.setColor(EDGE_LEFT);
         for (int x = 0; x < w; x++) {
+            float eHOff = map.isInBounds(x, 0) ? heightOffset(map.getTile(x, 0).getHeight()) : 0f;
             float sx = toScreenX(x, 0);
-            float by = toScreenY(x, 0) + hh;
+            float by = toScreenY(x, 0) + eHOff + hh;
             shape.triangle(sx, by, sx - hw, by + hh, sx - hw, by + hh - EDGE_DEPTH);
             shape.triangle(sx, by, sx - hw, by + hh - EDGE_DEPTH, sx, by - EDGE_DEPTH);
         }
 
         shape.setColor(EDGE_RIGHT);
         for (int y = 0; y < h; y++) {
+            float eHOff = map.isInBounds(0, y) ? heightOffset(map.getTile(0, y).getHeight()) : 0f;
             float sx = toScreenX(0, y);
-            float by = toScreenY(0, y) + hh;
+            float by = toScreenY(0, y) + eHOff + hh;
             shape.triangle(sx, by, sx + hw, by + hh, sx + hw, by + hh - EDGE_DEPTH);
             shape.triangle(sx, by, sx + hw, by + hh - EDGE_DEPTH, sx, by - EDGE_DEPTH);
         }
@@ -630,10 +724,16 @@ public class Renderer2D implements GameRenderer {
         font.dispose();
     }
 
-    private Color colorFor(TileType type, int tileX, int tileY) {
+    private Color colorFor(TileType type, int height, int tileX, int tileY) {
         switch (type) {
             case EMPTY:
-                return new Color(0.28f, 0.52f, 0.22f, 1f);
+                if (height >= 3) {
+                    return new Color(0.62f, 0.52f, 0.38f, 1f); // rocky peak
+                }
+                if (height == 2) {
+                    return new Color(0.30f, 0.46f, 0.18f, 1f); // olive foothill
+                }
+                return new Color(0.28f, 0.52f, 0.22f, 1f);     // normal grass
             case CITY:
                 return new Color(0.65f, 0.65f, 0.68f, 1f);
             case INDUSTRIAL_FACILITY:
@@ -643,7 +743,13 @@ public class Renderer2D implements GameRenderer {
             case WATER:
                 return animatedWaterColor(tileX, tileY);
             case FOREST:
-                return new Color(0.12f, 0.40f, 0.14f, 1f);
+                if (height >= 3) {
+                    return new Color(0.06f, 0.26f, 0.07f, 1f); // dark mountain forest
+                }
+                if (height == 2) {
+                    return new Color(0.09f, 0.34f, 0.11f, 1f); // slightly darker foothill
+                }
+                return new Color(0.12f, 0.40f, 0.14f, 1f);     // normal forest
             default:
                 return Color.MAGENTA;
         }

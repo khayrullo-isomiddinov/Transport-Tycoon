@@ -11,6 +11,7 @@ import com.team404.tycoon.model.TransportContentType;
 import com.team404.tycoon.model.TransportDemand;
 import com.team404.tycoon.model.Vehicle;
 import com.team404.tycoon.model.VehicleType;
+import com.team404.tycoon.controller.InputController;
 import org.junit.jupiter.api.Test;
 
 import java.util.EnumSet;
@@ -285,6 +286,109 @@ class TransportSimulationTest {
         state.addDecoration(new PlacedDecoration(3, 3, "resources/garage.png", 1, 1));
         boolean purchased = controller.purchaseVehicleAtGarage(3, 3, TransportContentType.GOODS);
         assertFalse(purchased, "Bankrupt company must not be able to buy vehicles");
+    }
+
+    // ── Height-restriction tests ──────────────────────────────────────────────
+
+    @Test
+    void roadPlacementRejectedWhenHeightDiffTooLarge() {
+        GameState state = new GameState(20, 20);
+        state.setBalance(EconomyConfig.INITIAL_CAPITAL);
+
+        // Lay a flat road at (4, 5) – height defaults to 1.
+        state.getMap().getTile(4, 5).setType(TileType.ROAD);
+        state.addDecoration(new PlacedDecoration(4, 5, "resources/highway-straight.png", 1, 1));
+
+        // The tile to the right is a steep peak (height 3).
+        state.getMap().getTile(5, 5).setHeight(3);
+
+        InputController input = new InputController(new GameController(state));
+        input.setSelectedAssetPath("resources/highway-straight.png");
+        input.onPrimaryClick(5, 5);
+
+        assertTrue(input.isLastPlacementRejected(), "Placement on height-3 tile next to height-1 road must be rejected");
+        assertEquals(1, state.getDecorations().size(), "No new decoration should be placed on illegal steep terrain");
+    }
+
+    @Test
+    void roadPlacementAllowedWhenHeightDiffIsOne() {
+        GameState state = new GameState(20, 20);
+        state.setBalance(EconomyConfig.INITIAL_CAPITAL);
+
+        // Flat road at (4, 5) – height 1 (default).
+        state.getMap().getTile(4, 5).setType(TileType.ROAD);
+        state.addDecoration(new PlacedDecoration(4, 5, "resources/highway-straight.png", 1, 1));
+
+        // Adjacent tile is a gentle slope (height 2 – difference is exactly 1).
+        state.getMap().getTile(5, 5).setHeight(2);
+
+        InputController input = new InputController(new GameController(state));
+        input.setSelectedAssetPath("resources/highway-straight.png");
+        input.onPrimaryClick(5, 5);
+
+        assertFalse(input.isLastPlacementRejected(), "Height difference of 1 must be accepted");
+        assertEquals(2, state.getDecorations().size(), "Road decoration must be placed on slope-compatible terrain");
+    }
+
+    @Test
+    void roadPlacementAllowedOnFlatTerrain() {
+        GameState state = new GameState(20, 20);
+        state.setBalance(EconomyConfig.INITIAL_CAPITAL);
+
+        // All tiles at default height 1.
+        state.getMap().getTile(4, 5).setType(TileType.ROAD);
+        state.addDecoration(new PlacedDecoration(4, 5, "resources/highway-straight.png", 1, 1));
+
+        InputController input = new InputController(new GameController(state));
+        input.setSelectedAssetPath("resources/highway-straight.png");
+        input.onPrimaryClick(5, 5);
+
+        assertFalse(input.isLastPlacementRejected(), "Flat terrain (height diff 0) must always be accepted");
+        assertEquals(2, state.getDecorations().size(), "Road decoration must be placed on flat terrain");
+    }
+
+    @Test
+    void roadPlacementAllowedOnHighTileWithNoAdjacentRoads() {
+        GameState state = new GameState(20, 20);
+        state.setBalance(EconomyConfig.INITIAL_CAPITAL);
+
+        // Place a road start on a peak – no neighbours yet, so no height check applies.
+        state.getMap().getTile(5, 5).setHeight(3);
+
+        InputController input = new InputController(new GameController(state));
+        input.setSelectedAssetPath("resources/highway-straight.png");
+        input.onPrimaryClick(5, 5);
+
+        assertFalse(input.isLastPlacementRejected(), "Isolated road start must be allowed regardless of tile height");
+        assertEquals(1, state.getDecorations().size(), "Road decoration must be placed when no adjacent roads exist");
+    }
+
+    @Test
+    void dragBuildRejectsIndividualTilesWithSteepHeight() {
+        GameState state = new GameState(20, 20);
+        state.setBalance(EconomyConfig.INITIAL_CAPITAL);
+
+        // Road network starting tile at height 1.
+        state.getMap().getTile(3, 5).setType(TileType.ROAD);
+        state.addDecoration(new PlacedDecoration(3, 5, "resources/highway-straight.png", 1, 1));
+
+        // Simulate drag: tiles 4 and 5. Tile 4 is accessible (height 2, diff=1),
+        // tile 5 is a cliff (height 4, diff vs tile 4 = 2 → rejected).
+        state.getMap().getTile(4, 5).setHeight(2);
+        state.getMap().getTile(5, 5).setHeight(4);
+
+        InputController input = new InputController(new GameController(state));
+        input.setSelectedAssetPath("resources/highway-straight.png");
+
+        // Simulate what MapInputProcessor does on drag release.
+        input.onPrimaryClick(4, 5); // legal: height 2 next to height 1
+        boolean tile4Accepted = !input.isLastPlacementRejected();
+
+        input.onPrimaryClick(5, 5); // illegal: height 4 next to height 2 (diff = 2)
+        boolean tile5Rejected = input.isLastPlacementRejected();
+
+        assertTrue(tile4Accepted, "Tile at height 2 adjacent to height-1 road must be accepted");
+        assertTrue(tile5Rejected, "Tile at height 4 adjacent to height-2 road must be rejected");
     }
 
     private static void paintHorizontalRoad(GameState state, int fromX, int toX, int y) {

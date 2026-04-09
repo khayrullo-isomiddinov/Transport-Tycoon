@@ -99,8 +99,76 @@ public final class Vehicle {
         }
     }
 
+    /**
+     * Returns the current service interval in simulation seconds, which decreases
+     * linearly as the vehicle ages.  A fresh vehicle is serviced every
+     * {@link EconomyConfig#MAINTENANCE_BASE_INTERVAL_SECONDS}; once old enough the
+     * interval floors at {@link EconomyConfig#MAINTENANCE_MIN_INTERVAL_SECONDS}.
+     */
+    public float getMaintenanceIntervalSeconds() {
+        float reduced = EconomyConfig.MAINTENANCE_BASE_INTERVAL_SECONDS
+                - ageSeconds * EconomyConfig.MAINTENANCE_AGE_REDUCTION_RATE;
+        return Math.max(EconomyConfig.MAINTENANCE_MIN_INTERVAL_SECONDS, reduced);
+    }
+
+    /**
+     * Returns true when the vehicle has gone longer than its current age-adjusted
+     * service interval since its last maintenance.
+     */
+    public boolean isMaintenanceDue() {
+        return ageSeconds - lastMaintenanceAgeSeconds >= getMaintenanceIntervalSeconds();
+    }
+
+    /**
+     * Returns true when the vehicle has consumed at least 75 % of its current
+     * service interval — i.e. maintenance is coming up soon even though it is
+     * not overdue yet.  Used by the renderer to show a "due soon" amber tint.
+     */
+    public boolean isMaintenanceDueSoon() {
+        return ageSeconds - lastMaintenanceAgeSeconds >= getMaintenanceIntervalSeconds() * 0.75f;
+    }
+
+    /**
+     * Legacy overload kept for backward-compatibility with existing tests.
+     *
+     * @deprecated Prefer {@link #isMaintenanceDue()} which uses age-based scheduling.
+     */
+    @Deprecated
     public boolean isMaintenanceDue(float maintenanceIntervalSeconds) {
         return ageSeconds - lastMaintenanceAgeSeconds >= maintenanceIntervalSeconds;
+    }
+
+    /**
+     * Returns the maintenance cost for this vehicle in its current age.
+     * Scales linearly from {@link EconomyConfig#VEHICLE_MAINTENANCE_COST} at age 0
+     * up to {@link EconomyConfig#MAINTENANCE_MAX_COST_MULTIPLIER}× that value.
+     */
+    public long getMaintenanceCost() {
+        float multiplier = 1f + ageSeconds / EconomyConfig.MAINTENANCE_COST_AGE_SCALE;
+        multiplier = Math.min(multiplier, EconomyConfig.MAINTENANCE_MAX_COST_MULTIPLIER);
+        return (long) (EconomyConfig.VEHICLE_MAINTENANCE_COST * multiplier);
+    }
+
+    /**
+     * Returns a [0.0, 1.0] speed factor applied when maintenance is overdue.
+     * <ul>
+     *   <li>1.0 – maintenance is current, no penalty</li>
+     *   <li>0.75 – overdue by up to one additional interval (vehicle is "struggling")</li>
+     *   <li>0.50 – overdue by two or more intervals (vehicle is "breaking down")</li>
+     * </ul>
+     * The penalty resets to 1.0 after the vehicle is serviced.
+     */
+    public float getMaintenanceOverdueFactor() {
+        float sinceLastService = ageSeconds - lastMaintenanceAgeSeconds;
+        float interval = getMaintenanceIntervalSeconds();
+        if (sinceLastService < interval) {
+            return 1.0f;
+        }
+        float overdueIntervals = (sinceLastService - interval) / interval;
+        if (overdueIntervals < 1f) {
+            return 0.75f;
+        }
+        return 0.50f;
     }
 
     public void performMaintenance() {

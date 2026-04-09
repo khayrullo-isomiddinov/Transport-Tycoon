@@ -19,7 +19,6 @@ import java.util.List;
  */
 public final class TransportSimulation {
     static final float MIN_TRAVEL_DISTANCE = 1f;
-    static final float MAINTENANCE_INTERVAL_SECONDS = 120f;
     private static final float GLOBAL_VEHICLE_SPEED_MULTIPLIER = 0.5f;
     static final float MIN_FOLLOWING_DISTANCE = 1.5f;
 
@@ -43,6 +42,7 @@ public final class TransportSimulation {
             processArrival(state, route, vehicle, vehicle.getCurrentStopIndex());
             float movedTiles = vehicle.getType().getSpeedTilesPerSecond()
                     * GLOBAL_VEHICLE_SPEED_MULTIPLIER
+                    * vehicle.getMaintenanceOverdueFactor()
                     * deltaSeconds;
             if (mustStopForMissingRoadConnection(state, route, vehicle) || mustStopForRedLight(state, route, vehicle)) {
                 movedTiles = 0f;
@@ -155,7 +155,7 @@ public final class TransportSimulation {
     }
 
     private static void processMaintenance(GameState state, int townIndex, Vehicle vehicle) {
-        if (!vehicle.isMaintenanceDue(MAINTENANCE_INTERVAL_SECONDS)) {
+        if (!vehicle.isMaintenanceDue()) {
             return;
         }
         Town town = state.getTown(townIndex).orElse(null);
@@ -165,7 +165,8 @@ public final class TransportSimulation {
         if (!state.hasConnectedGarageNearTown(town, 10)) {
             return;
         }
-        state.chargeRunningCost(EconomyConfig.VEHICLE_MAINTENANCE_COST);
+        // Cost scales with vehicle age: older vehicles are more expensive to service.
+        state.chargeRunningCost(vehicle.getMaintenanceCost());
         vehicle.performMaintenance();
     }
 

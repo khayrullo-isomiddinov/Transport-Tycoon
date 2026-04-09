@@ -33,6 +33,8 @@ public class HudRenderer {
     private static final Color CHIP_DEMAND   = new Color(1f,    0.85f, 0.35f, 1f);
     private static final Color CHIP_EARNED   = new Color(0.40f, 0.92f, 0.50f, 1f);
     private static final Color CHIP_SPENT    = new Color(1f,    0.45f, 0.35f, 1f);
+    private static final Color CHIP_MAINT_OK = new Color(0.55f, 0.85f, 1f,    1f); // same as vehicles when none due
+    private static final Color CHIP_MAINT_DUE= new Color(1f,    0.55f, 0.15f, 1f); // orange when vehicles overdue
     private static final Color DIVIDER_COL   = new Color(1f,    1f,    1f,    0.08f);
 
     private final OrthographicCamera hudCamera;
@@ -120,8 +122,8 @@ public class HudRenderer {
     private void drawStatsDividers(float w, float h) {
         float barBottom = h - UiChrome.totalTopHeight();
         float barH      = UiChrome.BUILD_BAR_HEIGHT;
-        int   chips     = 5;
-        float chipW     = w / chips;
+        int   chips     = 6; // must match the number of stat chips in drawStatsBar
+        float chipW     = (w * 0.75f) / chips;
         float padV      = 8f;
 
         Gdx.gl.glEnable(GL20.GL_BLEND);
@@ -147,13 +149,17 @@ public class HudRenderer {
         float barBottom = h - UiChrome.totalTopHeight();
         float barH      = UiChrome.BUILD_BAR_HEIGHT;
 
-        String[] labels = {"Capital", "Vehicles", "Demand", "Earned", "Spent"};
+        long overdueCount = state.getVehicles().stream()
+                .filter(v -> v.isMaintenanceDue() || v.getMaintenanceOverdueFactor() < 1f)
+                .count();
+        String[] labels = {"Capital", "Vehicles", "Demand", "Earned", "Spent", "Maint"};
         String[] values = {
             "$" + formatMoney(state.getBalance()),
             String.valueOf(state.getVehicles().size()),
             String.valueOf(state.getTransportDemand().size()),
             "$" + formatMoney(state.getLifetimeIncome()),
             "$" + formatMoney(state.getLifetimeExpenses()),
+            overdueCount == 0 ? "OK" : overdueCount + " due",
         };
         Color[] valueColors = {
             capitalColor(state.getBalance()),
@@ -161,6 +167,7 @@ public class HudRenderer {
             CHIP_DEMAND,
             CHIP_EARNED,
             CHIP_SPENT,
+            overdueCount == 0 ? CHIP_MAINT_OK : CHIP_MAINT_DUE,
         };
 
         // Five stat chips take up 75 % of the bar width; identity info on the right.

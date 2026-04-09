@@ -36,13 +36,44 @@ public final class EconomyConfig {
     public static final long TRUCK_RESALE_VALUE = 11_000L;
 
     /**
-     * Mandatory maintenance charge per vehicle per service interval.
+     * Base mandatory maintenance charge for a brand-new vehicle per service.
+     * Actual cost scales up with vehicle age via {@link #MAINTENANCE_COST_AGE_SCALE}.
      * Always deducted even when balance is low; can push the balance
      * negative and trigger bankruptcy.
-     *
-     * @see com.team404.tycoon.controller.TransportSimulation#MAINTENANCE_INTERVAL_SECONDS
      */
     public static final long VEHICLE_MAINTENANCE_COST = 500L;
+
+    /**
+     * Service interval for a brand-new vehicle (age = 0), in simulation seconds.
+     * The effective interval shrinks linearly with vehicle age at a rate of
+     * {@link #MAINTENANCE_AGE_REDUCTION_RATE} seconds per second of vehicle age,
+     * down to a minimum of {@link #MAINTENANCE_MIN_INTERVAL_SECONDS}.
+     */
+    public static final float MAINTENANCE_BASE_INTERVAL_SECONDS = 120f;
+
+    /**
+     * Minimum service interval regardless of how old the vehicle is, in simulation seconds.
+     * A vehicle that reaches this age will need servicing very frequently.
+     */
+    public static final float MAINTENANCE_MIN_INTERVAL_SECONDS = 30f;
+
+    /**
+     * How many seconds the service interval shrinks for every second of vehicle age.
+     * Default 0.06: after 1500 s of vehicle age the interval hits the minimum of 30 s.
+     */
+    public static final float MAINTENANCE_AGE_REDUCTION_RATE = 0.06f;
+
+    /**
+     * Every this many seconds of vehicle age, the maintenance cost increases by 100 % of base.
+     * Example: age 600 s → cost = 500 × (1 + 600/600) = $1 000.
+     */
+    public static final float MAINTENANCE_COST_AGE_SCALE = 600f;
+
+    /**
+     * Maximum multiplier applied to {@link #VEHICLE_MAINTENANCE_COST} regardless of age.
+     * Caps the per-service charge at 3× the base cost.
+     */
+    public static final float MAINTENANCE_MAX_COST_MULTIPLIER = 3f;
 
     /**
      * Cost to raise or lower a single tile's height by one level.

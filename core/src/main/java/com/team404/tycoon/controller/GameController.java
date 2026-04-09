@@ -231,7 +231,7 @@ public class GameController {
         if (oldest == null) {
             return false;
         }
-        if (oldest.getAgeSeconds() < TransportSimulation.MAINTENANCE_INTERVAL_SECONDS) {
+        if (oldest.getAgeSeconds() < EconomyConfig.MAINTENANCE_BASE_INTERVAL_SECONDS) {
             return false;
         }
         return sellVehicle(oldest.getId());

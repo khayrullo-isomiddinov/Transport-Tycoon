@@ -295,8 +295,22 @@ public class Renderer2D implements GameRenderer {
             } else {
                 carTex = carDownRightTex;
             }
+            // Tint vehicle sprite based on maintenance state so the player can see at a glance.
+            float overdueFactor = vehicle.getMaintenanceOverdueFactor();
+            if (overdueFactor <= 0.5f) {
+                batch.setColor(1f, 0.30f, 0.20f, 1f); // bright red  – critically overdue, 50% speed
+            } else if (overdueFactor < 1f) {
+                batch.setColor(1f, 0.75f, 0.10f, 1f); // orange      – overdue, 75% speed
+            } else if (vehicle.isMaintenanceDue()) {
+                batch.setColor(1f, 0.90f, 0.30f, 1f); // yellow      – due now, will be serviced at next garage
+            } else if (vehicle.isMaintenanceDueSoon()) {
+                batch.setColor(1f, 1f, 0.60f, 1f);    // pale yellow – coming up soon (>75% of interval used)
+            } else {
+                batch.setColor(Color.WHITE);            // white       – healthy
+            }
             float half = VEHICLE_DRAW_SIZE / 2f;
             batch.draw(carTex, pos[0] - half, pos[1] - half, VEHICLE_DRAW_SIZE, VEHICLE_DRAW_SIZE);
+            batch.setColor(Color.WHITE); // always reset so other sprites are unaffected
         }
         batch.end();
         Gdx.gl.glDisable(GL20.GL_BLEND);

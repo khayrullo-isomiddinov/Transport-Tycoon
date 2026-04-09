@@ -48,8 +48,8 @@ public class Renderer2D implements GameRenderer {
 
     private static final float CAMERA_SPEED = 400f;
     private static final float ZOOM_SPEED = 0.1f;
-    private static final float MIN_ZOOM = 0.3f;
-    private static final float MAX_ZOOM = 2f;
+    private static final float MIN_ZOOM = 0.2f;
+    private static final float MAX_ZOOM = 4.0f;
 
     private static final Color HOVER_VALID   = new Color(0.30f, 1f,    0.30f, 0.90f);
     private static final Color HOVER_INVALID = new Color(1f,    0.18f, 0.10f, 0.95f);
@@ -377,11 +377,23 @@ public class Renderer2D implements GameRenderer {
             font.setColor(0.95f, 0.95f, 0.95f, 1f);
             font.draw(batch, name, x, y);
 
+            // Population sub-label
+            font.getData().setScale(0.80f);
+            String popLabel = String.format("%,d", t.getPopulation());
+            glyphLayout.setText(font, popLabel);
+            float px = sx - glyphLayout.width * 0.5f;
+            float py = y - 12f;
+            font.setColor(0f, 0f, 0f, 0.65f);
+            font.draw(batch, popLabel, px + 1f, py - 1f);
+            font.setColor(0.65f, 0.90f, 1.00f, 0.95f);
+            font.draw(batch, popLabel, px, py);
+            font.getData().setScale(1f);
+
             String demandLabel = buildDemandLabel(state, i);
             if (!demandLabel.isEmpty()) {
                 glyphLayout.setText(font, demandLabel);
                 float dx = sx - glyphLayout.width * 0.5f;
-                float dy = y - 14f;
+                float dy = y - 26f; // pushed down to make room for population label
                 font.setColor(0f, 0f, 0f, 0.7f);
                 font.draw(batch, demandLabel, dx + 1f, dy - 1f);
                 font.setColor(1f, 0.85f, 0.25f, 1f);
@@ -870,12 +882,43 @@ public class Renderer2D implements GameRenderer {
     @Override
     public void resize(int width, int height) {
         camera.setToOrtho(false, width, height);
-        int midTile = 32;
-        camera.position.set(
-                toScreenX(midTile, midTile),
-                toScreenY(midTile, midTile),
-                0
-        );
+    }
+
+    /**
+     * Sets the camera to a comfortable starting position for a new game: zoom=1,
+     * centred on the map's isometric midpoint. Call once after the map is generated.
+     */
+    public void initCameraForMap(int mapW, int mapH) {
+        camera.zoom = 1.0f;
+        camera.position.set(toScreenX(mapW / 2, mapH / 2), toScreenY(mapW / 2, mapH / 2), 0);
+        camera.update();
+    }
+
+    /**
+     * Centers and zooms the camera so the full map is visible with a small margin.
+     * Call this once after the game map has been created.
+     */
+    public void fitCamera(int mapW, int mapH) {
+        int vw = Gdx.graphics.getWidth();
+        int vh = Gdx.graphics.getHeight();
+
+        // World-space extent of the isometric diamond
+        float worldW = (mapW + mapH) * (TILE_W / 2f);
+        float worldH = (mapW + mapH) * (TILE_H / 2f) + 64f; // +64 headroom for tall tiles/sprites
+
+        // The HUD chrome eats some screen pixels at the top; account for it
+        float availH = Math.max(1f, vh - UiChrome.totalTopHeight());
+
+        float fitZoomW = worldW / Math.max(1f, vw);
+        float fitZoomH = worldH / availH;
+        float zoom = Math.max(fitZoomW, fitZoomH) * 1.08f; // 8 % margin so edges aren't clipped
+        camera.zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom));
+
+        // Center on the map's isometric midpoint
+        int midX = mapW / 2;
+        int midY = mapH / 2;
+        camera.position.set(toScreenX(midX, midY), toScreenY(midX, midY), 0);
+        camera.update();
     }
 
     private void drawBirds(float delta, int mapW, int mapH) {

@@ -26,8 +26,7 @@ public final class RandomMapGenerator {
         paintForests(map, rng);
         generateHeights(map, rng);
         generateTowns(state, map, rng);
-        connectTownRoadNetwork(state, map);
-        pruneDeadEndRoads(map);
+        // Inter-town roads are NOT generated — the player must connect towns themselves.
         decorateAllRoadTiles(state, map, rng);
         sprinkleNatureDecor(state, map, rng);
         state.bootstrapStarterTransport();
@@ -162,7 +161,9 @@ public final class RandomMapGenerator {
     }
 
     private static void generateTowns(GameState state, GameMap map, Random rng) {
-        int townCount = 3 + rng.nextInt(3); // 3..5 towns
+        // Scale town count with map size: small maps 4-6, large maps up to 16-18.
+        int baseTowns = Math.min(16, 3 + map.getWidth() / 50);
+        int townCount = baseTowns + rng.nextInt(3);
         for (int i = 0; i < townCount; i++) {
             int cx = 10 + rng.nextInt(Math.max(1, map.getWidth() - 20));
             int cy = 10 + rng.nextInt(Math.max(1, map.getHeight() - 20));
@@ -177,7 +178,9 @@ public final class RandomMapGenerator {
             // Ensure the "town center" is always on land and driveable.
             paintRoadTile(map, cx, cy);
             placeTownBuildings(state, map, rng, cx, cy, half);
-            state.addTown(new Town(generateTownName(rng), cx, cy));
+            // Population scales with town size; half is 3–5, giving ~400–900 starting pop.
+            int initialPop = 200 + half * 80 + rng.nextInt(200);
+            state.addTown(new Town(generateTownName(rng), cx, cy, initialPop));
         }
     }
 

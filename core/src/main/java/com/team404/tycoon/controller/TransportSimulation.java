@@ -84,6 +84,8 @@ public final class TransportSimulation {
 
     private static void processArrival(GameState state, Route route, Vehicle vehicle, int arrivedStopIndex) {
         int townIndex = route.getStops().get(arrivedStopIndex).getTownIndex();
+        // Record service so town growth logic knows this town is connected.
+        state.recordTownServiced(townIndex, state.getSimulationTimeSeconds());
         unloadAtTown(state, vehicle, townIndex);
         loadAtTown(state, route, vehicle, townIndex);
         processMaintenance(state, townIndex, vehicle);
@@ -94,7 +96,9 @@ public final class TransportSimulation {
         long revenue = 0L;
         for (Shipment shipment : vehicle.getLoadedShipments()) {
             if (shipment.getDestinationTownIndex() == townIndex) {
-                revenue += (long) shipment.getQuantity() * shipment.getUnitRevenue();
+                // Distance bonus: 1.0× at 0 tiles, up to 3.0× at ≥60 tiles.
+                float distMultiplier = 1f + Math.min(2f, shipment.getDistanceTiles() / 30f);
+                revenue += (long) (shipment.getQuantity() * shipment.getUnitRevenue() * distMultiplier);
             } else {
                 retained.add(shipment);
             }
@@ -113,6 +117,7 @@ public final class TransportSimulation {
         if (freeCapacity <= 0) {
             return;
         }
+        Town originTown = state.getTown(townIndex).orElse(null);
         Iterator<TransportDemand> iterator = state.getTransportDemandMutable().iterator();
         while (iterator.hasNext() && freeCapacity > 0) {
             TransportDemand demand = iterator.next();
@@ -127,11 +132,20 @@ public final class TransportSimulation {
             }
             int loaded = demand.removeQuantity(freeCapacity);
             if (loaded > 0) {
+                // Compute approximate tile distance between origin and destination town centres.
+                int distTiles = 0;
+                Town destTown = state.getTown(demand.getDestinationTownIndex()).orElse(null);
+                if (originTown != null && destTown != null) {
+                    int dx = originTown.getCenterX() - destTown.getCenterX();
+                    int dy = originTown.getCenterY() - destTown.getCenterY();
+                    distTiles = (int) Math.sqrt(dx * dx + dy * dy);
+                }
                 vehicle.addShipment(new Shipment(
                         demand.getContentType(),
                         demand.getDestinationTownIndex(),
                         loaded,
-                        demand.getUnitRevenue()));
+                        demand.getUnitRevenue(),
+                        distTiles));
                 freeCapacity -= loaded;
             }
             if (demand.isDepleted()) {

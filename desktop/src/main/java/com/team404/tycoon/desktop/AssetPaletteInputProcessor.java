@@ -67,6 +67,17 @@ public class AssetPaletteInputProcessor implements InputProcessor {
             }
             palette.closeDropdown();
         }
+        float sw = com.badlogic.gdx.Gdx.graphics.getWidth();
+        if (UiChrome.isInMenuButton(screenX, screenY, sw)) {
+            inputController.requestMenu();
+            return true;
+        }
+        // Speed control buttons live in the BUILD_BAR (below the asset strip).
+        int speedIdx = UiChrome.speedButtonIndexAt(screenX, screenY);
+        if (speedIdx >= 0) {
+            inputController.setGameSpeedIndex(speedIdx);
+            return true;
+        }
         if (!UiChrome.isInAssetBar(screenX, screenY)) {
             return false;
         }
@@ -137,8 +148,12 @@ public class AssetPaletteInputProcessor implements InputProcessor {
     @Override
     public boolean keyDown(int keycode) {
         if (keycode == Input.Keys.ESCAPE) {
-            palette.clearSelection();
-            inputController.clearSelectedAssetPath();
+            if (inputController.getSelectedAssetPath() != null) {
+                palette.clearSelection();
+                inputController.clearSelectedAssetPath();
+            } else {
+                inputController.requestMenu();
+            }
             return true;
         }
         return false;

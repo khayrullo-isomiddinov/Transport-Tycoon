@@ -10,8 +10,10 @@ public final class Shipment {
     private final int destinationTownIndex;
     private final int quantity;
     private final int unitRevenue;
+    /** Approximate tile distance between origin and destination town centres. Used for distance bonus. */
+    private final int distanceTiles;
 
-    public Shipment(TransportContentType contentType, int destinationTownIndex, int quantity, int unitRevenue) {
+    public Shipment(TransportContentType contentType, int destinationTownIndex, int quantity, int unitRevenue, int distanceTiles) {
         if (destinationTownIndex < 0) {
             throw new IllegalArgumentException("destinationTownIndex must be >= 0");
         }
@@ -25,6 +27,12 @@ public final class Shipment {
         this.destinationTownIndex = destinationTownIndex;
         this.quantity = quantity;
         this.unitRevenue = unitRevenue;
+        this.distanceTiles = Math.max(0, distanceTiles);
+    }
+
+    /** Convenience constructor with no distance bonus (backwards-compatible). */
+    public Shipment(TransportContentType contentType, int destinationTownIndex, int quantity, int unitRevenue) {
+        this(contentType, destinationTownIndex, quantity, unitRevenue, 0);
     }
 
     public TransportContentType getContentType() {
@@ -41,5 +49,9 @@ public final class Shipment {
 
     public int getUnitRevenue() {
         return unitRevenue;
+    }
+
+    public int getDistanceTiles() {
+        return distanceTiles;
     }
 }

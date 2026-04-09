@@ -61,8 +61,10 @@ class TransportSimulationTest {
 
         assertTrue(state.getTransportDemand().isEmpty(), "Demand should be fully loaded and delivered");
         assertTrue(vehicle.getLoadedShipments().isEmpty(), "Vehicle should unload at destination");
-        assertEquals(170L, state.getBalance(), "Income should equal delivered quantity * unit revenue");
-        assertEquals(170L, state.getLifetimeIncome(), "Lifetime income should track successful deliveries");
+        // Revenue is distance-scaled: distance=16 tiles → multiplier=1+(16/30)≈1.533
+        // Passengers: (long)(4*20*1.533)=122, Goods: (long)(3*30*1.533)=138, total=260
+        assertEquals(260L, state.getBalance(), "Income should include distance-scaled revenue");
+        assertEquals(260L, state.getLifetimeIncome(), "Lifetime income should track successful deliveries");
     }
 
     @Test
@@ -87,7 +89,8 @@ class TransportSimulationTest {
 
         new GameController(state).update(1.0f);
 
-        assertEquals(50L, state.getBalance(), "Only valid, compatible passenger demand should be delivered");
+        // Distance A→B = 9 tiles → multiplier = 1+(9/30)=1.3 → (long)(5*10*1.3)=65
+        assertEquals(65L, state.getBalance(), "Only valid, compatible passenger demand should be delivered (with distance bonus)");
         assertEquals(2, state.getTransportDemand().size(), "Invalid destination and incompatible goods remain pending");
     }
 

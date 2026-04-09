@@ -18,9 +18,9 @@ import com.team404.tycoon.model.GameState;
 
 public class HudRenderer {
 
-    // ── bankruptcy overlay ────────────────────────────────────────────────────
-    private static final Color BANKRUPT_BG   = new Color(0.55f, 0f,    0f,    0.88f);
-    private static final Color BANKRUPT_TEXT = new Color(1f,    0.92f, 0.15f, 1f);
+    // ── menu button ───────────────────────────────────────────────────────────
+    private static final Color MENU_BTN_BG     = new Color(0.12f, 0.18f, 0.28f, 0.95f);
+    private static final Color MENU_BTN_BORDER = new Color(0.35f, 0.50f, 0.75f, 1f);
 
     // ── capital health colours ────────────────────────────────────────────────
     private static final Color CAPITAL_HEALTHY = new Color(0.35f, 1f,    0.45f, 1f);
@@ -53,7 +53,7 @@ public class HudRenderer {
         font.setColor(Color.WHITE);
     }
 
-    public void render(AssetPaletteState palette, DecorationTextureCache cache, GameState state, BuildMode currentMode, boolean terrainTooSteep, boolean terraformRejected) {
+    public void render(AssetPaletteState palette, DecorationTextureCache cache, GameState state, BuildMode currentMode, int speedIndex, boolean terrainTooSteep, boolean terraformRejected) {
         float w = Gdx.graphics.getWidth();
         float h = Gdx.graphics.getHeight();
         float visible  = UiChrome.assetContentWidth(w);
@@ -76,6 +76,8 @@ public class HudRenderer {
         drawStatsBar(w, h, state);
         drawControlsHint(w, state, palette);
         batch.end();
+        drawMenuButton(w, h);
+        drawSpeedButtons(w, h, speedIndex);
 
         drawAssetSelectionOutline(w, h, palette);
         drawAssetHoverTooltip(w, h, palette);
@@ -85,9 +87,6 @@ public class HudRenderer {
             drawDropdownPanel(h, palette);
         }
 
-        if (state.isBankrupt()) {
-            drawBankruptOverlay(w, h);
-        }
         if (terrainTooSteep) {
             drawTerrainTooSteepWarning(w, h);
         }
@@ -164,10 +163,12 @@ public class HudRenderer {
             CHIP_SPENT,
         };
 
-        float chipW  = w / labels.length;
-        float padX   = 14f;
-        float labelY = barBottom + barH - 8f;
-        float valueY = barBottom + 18f;
+        // Five stat chips take up 75 % of the bar width; identity info on the right.
+        float chipAreaW = w * 0.75f;
+        float chipW     = chipAreaW / labels.length;
+        float padX      = 14f;
+        float labelY    = barBottom + barH - 8f;
+        float valueY    = barBottom + 18f;
 
         for (int i = 0; i < labels.length; i++) {
             float x = i * chipW + padX;
@@ -181,8 +182,33 @@ public class HudRenderer {
             font.draw(batch, values[i], x, valueY);
         }
 
+        // Company name, year and difficulty on the right side of the stats bar.
+        float infoX = chipAreaW + 16f;
+        font.getData().setScale(1.05f);
+        font.setColor(1f, 0.92f, 0.55f, 1f);
+        font.draw(batch, state.getCompanyName(), infoX, labelY);
+
+        font.getData().setScale(0.88f);
+        font.setColor(0.60f, 0.68f, 0.82f, 1f);
+        font.draw(batch, "Year " + state.getGameYear(), infoX, valueY + 4f);
+
+        String diffLabel = state.getDifficulty().getLabel();
+        Color diffColor = difficultyColor(state.getDifficulty());
+        font.getData().setScale(0.82f);
+        font.setColor(diffColor);
+        glyphLayout.setText(font, diffLabel);
+        font.draw(batch, diffLabel, w - glyphLayout.width - 14f, valueY + 4f);
+
         font.getData().setScale(1.0f);
         font.setColor(Color.WHITE);
+    }
+
+    private static Color difficultyColor(com.team404.tycoon.model.Difficulty d) {
+        switch (d) {
+            case EASY:   return new Color(0.30f, 0.88f, 0.35f, 1f);
+            case HARD:   return new Color(0.95f, 0.30f, 0.25f, 1f);
+            default:     return new Color(0.40f, 0.70f, 1.00f, 1f);
+        }
     }
 
     // ── controls hint (tiny, bottom of screen) ────────────────────────────────
@@ -259,36 +285,6 @@ public class HudRenderer {
         font.setColor(TERRAFORM_REJECT_TEXT);
         font.draw(batch, msg, w / 2f - glyphLayout.width / 2f, h - panelY - panelH + panelH * 0.65f);
         font.getData().setScale(1f);
-        font.setColor(Color.WHITE);
-        batch.end();
-    }
-
-    // ── bankruptcy overlay ────────────────────────────────────────────────────
-
-    private void drawBankruptOverlay(float w, float h) {
-        float panelH = 72f;
-        float panelY = h / 2f - panelH / 2f;
-
-        Gdx.gl.glEnable(GL20.GL_BLEND);
-        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
-        shape.begin(ShapeRenderer.ShapeType.Filled);
-        shape.setColor(BANKRUPT_BG);
-        shape.rect(0, panelY, w, panelH);
-        shape.end();
-        Gdx.gl.glDisable(GL20.GL_BLEND);
-
-        String line1 = "COMPANY BANKRUPT";
-        String line2 = "Running costs exceeded revenue. The company has been dissolved.";
-
-        batch.begin();
-        font.getData().setScale(2.0f);
-        glyphLayout.setText(font, line1);
-        font.setColor(BANKRUPT_TEXT);
-        font.draw(batch, line1, w / 2f - glyphLayout.width / 2f, panelY + panelH - 10f);
-        font.getData().setScale(1.0f);
-        glyphLayout.setText(font, line2);
-        font.setColor(new Color(1f, 1f, 1f, 0.85f));
-        font.draw(batch, line2, w / 2f - glyphLayout.width / 2f, panelY + 20f);
         font.setColor(Color.WHITE);
         batch.end();
     }
@@ -516,7 +512,8 @@ public class HudRenderer {
         float barBottom = h - UiChrome.ASSET_BAR_HEIGHT;
         float y         = barBottom + (UiChrome.ASSET_BAR_HEIGHT - UiChrome.ARROW_SIZE) * 0.5f;
         float leftX     = UiChrome.leftArrowX();
-        float rightX    = w - UiChrome.ASSET_PAD - UiChrome.ARROW_SIZE;
+        // Right arrow sits to the left of the menu button, matching the hit-test in UiChrome.
+        float rightX    = w - UiChrome.ASSET_PAD - UiChrome.MENU_BTN_W - UiChrome.ASSET_PAD - UiChrome.ARROW_SIZE;
 
         boolean canScrollLeft  = palette.getScrollX() > 0.5f;
         boolean canScrollRight = palette.getScrollX() < maxScroll - 0.5f;
@@ -604,6 +601,93 @@ public class HudRenderer {
             case LOWER_TERRAIN: return active ? new Color(0.30f, 0.20f, 0.55f, 1f) : new Color(0.18f, 0.12f, 0.35f, 1f);
             default:            return Color.DARK_GRAY;
         }
+    }
+
+    // ── in-game menu button ───────────────────────────────────────────────────
+
+    private void drawMenuButton(float w, float h) {
+        float bx = UiChrome.menuButtonX(w);
+        float by = UiChrome.menuButtonLibGdxY(h);   // correct LibGDX y-up coordinate
+        float bw = UiChrome.MENU_BTN_W;
+        float bh = UiChrome.MENU_BTN_H;
+
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+
+        // Filled background with a warm accent so the button stands out from the dark strip.
+        shape.begin(ShapeRenderer.ShapeType.Filled);
+        shape.setColor(MENU_BTN_BG);
+        shape.rect(bx, by, bw, bh);
+        shape.end();
+
+        // Bright border
+        shape.begin(ShapeRenderer.ShapeType.Line);
+        shape.setColor(MENU_BTN_BORDER);
+        shape.rect(bx, by, bw, bh);
+        shape.end();
+
+        Gdx.gl.glDisable(GL20.GL_BLEND);
+
+        batch.setProjectionMatrix(hudCamera.combined);
+        batch.begin();
+        font.getData().setScale(1.0f);
+        font.setColor(0.95f, 0.95f, 1f, 1f);
+        String label = "\u2630 Menu";
+        glyphLayout.setText(font, label);
+        font.draw(batch, label, bx + (bw - glyphLayout.width) / 2f, by + (bh + glyphLayout.height) / 2f);
+        font.getData().setScale(1f);
+        font.setColor(Color.WHITE);
+        batch.end();
+    }
+
+    // ── speed control buttons ─────────────────────────────────────────────────
+
+    private static final String[] SPEED_LABELS = {"||", "1\u00d7", "2\u00d7", "4\u00d7"};
+    private static final Color SPEED_ACTIVE_BG   = new Color(0.20f, 0.40f, 0.20f, 1f);
+    private static final Color SPEED_INACTIVE_BG = new Color(0.10f, 0.12f, 0.18f, 0.95f);
+    private static final Color SPEED_BORDER      = new Color(0.30f, 0.45f, 0.30f, 1f);
+
+    private void drawSpeedButtons(float w, float h, int activeSpeedIndex) {
+        float barBottom = h - UiChrome.totalTopHeight();
+        float btnH = UiChrome.SPEED_BTN_H;
+        float btnY = barBottom + (UiChrome.BUILD_BAR_HEIGHT - btnH) / 2f;
+        float startX = UiChrome.speedButtonsStartX(w);
+
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+
+        shape.begin(ShapeRenderer.ShapeType.Filled);
+        for (int i = 0; i < UiChrome.SPEED_BTN_COUNT; i++) {
+            float bx = startX + i * (UiChrome.SPEED_BTN_W + UiChrome.SPEED_BTN_GAP);
+            shape.setColor(i == activeSpeedIndex ? SPEED_ACTIVE_BG : SPEED_INACTIVE_BG);
+            shape.rect(bx, btnY, UiChrome.SPEED_BTN_W, btnH);
+        }
+        shape.end();
+
+        shape.begin(ShapeRenderer.ShapeType.Line);
+        for (int i = 0; i < UiChrome.SPEED_BTN_COUNT; i++) {
+            float bx = startX + i * (UiChrome.SPEED_BTN_W + UiChrome.SPEED_BTN_GAP);
+            shape.setColor(i == activeSpeedIndex ? new Color(0.40f, 1f, 0.40f, 1f) : SPEED_BORDER);
+            shape.rect(bx, btnY, UiChrome.SPEED_BTN_W, btnH);
+        }
+        shape.end();
+
+        Gdx.gl.glDisable(GL20.GL_BLEND);
+
+        batch.setProjectionMatrix(hudCamera.combined);
+        batch.begin();
+        font.getData().setScale(0.88f);
+        for (int i = 0; i < UiChrome.SPEED_BTN_COUNT; i++) {
+            float bx = startX + i * (UiChrome.SPEED_BTN_W + UiChrome.SPEED_BTN_GAP);
+            font.setColor(i == activeSpeedIndex ? new Color(0.50f, 1f, 0.50f, 1f) : new Color(0.70f, 0.75f, 0.85f, 1f));
+            glyphLayout.setText(font, SPEED_LABELS[i]);
+            font.draw(batch, SPEED_LABELS[i],
+                    bx + (UiChrome.SPEED_BTN_W - glyphLayout.width) / 2f,
+                    btnY + (btnH + glyphLayout.height) / 2f);
+        }
+        font.getData().setScale(1f);
+        font.setColor(Color.WHITE);
+        batch.end();
     }
 
     // ── helpers ───────────────────────────────────────────────────────────────

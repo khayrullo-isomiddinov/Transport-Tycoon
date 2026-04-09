@@ -124,11 +124,78 @@ public final class UiChrome {
     }
 
     public static float assetContentRightX(float screenWidth) {
-        return screenWidth - ASSET_PAD - ARROW_SIZE - ARROW_GAP;
+        // Leave room for the right scroll arrow AND the menu button in the same bar.
+        return screenWidth - ASSET_PAD - ARROW_SIZE - ARROW_GAP - MENU_BTN_W - ASSET_PAD;
     }
 
     public static float assetContentWidth(float screenWidth) {
         return Math.max(0f, assetContentRightX(screenWidth) - assetContentLeftX());
+    }
+
+    // ── In-game menu button (top-right corner of the asset bar) ──────────────
+    public static final float MENU_BTN_W = 80f;
+    public static final float MENU_BTN_H = 36f;
+
+    /** Screen-X of the menu button left edge. GLFW (x-right). */
+    public static float menuButtonX(float screenWidth) {
+        return screenWidth - MENU_BTN_W - ASSET_PAD;
+    }
+
+    /**
+     * Screen-Y of the menu button top edge. GLFW y-down coords.
+     * Button is centred vertically inside the asset bar.
+     */
+    public static float menuButtonY() {
+        return (ASSET_BAR_HEIGHT - MENU_BTN_H) / 2f;
+    }
+
+    /**
+     * LibGDX y-up coordinate of the button's bottom edge.
+     * Use this for drawing with SpriteBatch / ShapeRenderer.
+     */
+    public static float menuButtonLibGdxY(float screenHeight) {
+        return screenHeight - menuButtonY() - MENU_BTN_H;
+    }
+
+    public static boolean isInMenuButton(float screenX, float screenY, float screenWidth) {
+        float bx = menuButtonX(screenWidth);
+        float by = menuButtonY();
+        return screenX >= bx && screenX <= bx + MENU_BTN_W
+                && screenY >= by && screenY <= by + MENU_BTN_H;
+    }
+
+    // ── Speed control buttons (right side of BUILD_BAR) ──────────────────────
+    public static final float SPEED_BTN_W   = 36f;
+    public static final float SPEED_BTN_H   = 28f;
+    public static final float SPEED_BTN_GAP = 4f;
+    public static final int   SPEED_BTN_COUNT = 4;
+
+    /** Screen-X of the left edge of the first speed button. GLFW (x-right). */
+    public static float speedButtonsStartX(float screenWidth) {
+        return screenWidth - ASSET_PAD - SPEED_BTN_COUNT * SPEED_BTN_W - (SPEED_BTN_COUNT - 1) * SPEED_BTN_GAP;
+    }
+
+    /**
+     * Returns which speed button (0=pause, 1=1×, 2=2×, 3=4×) the cursor is over, or -1.
+     * Uses GLFW coords (y down).
+     */
+    public static int speedButtonIndexAt(float screenX, float screenY) {
+        // Speed buttons are in the BUILD_BAR strip.
+        if (screenY < ASSET_BAR_HEIGHT || screenY > totalTopHeight()) {
+            return -1;
+        }
+        float sw = Gdx.graphics.getWidth();
+        float startX = speedButtonsStartX(sw);
+        float localX = screenX - startX;
+        if (localX < 0) {
+            return -1;
+        }
+        int idx = (int) (localX / (SPEED_BTN_W + SPEED_BTN_GAP));
+        float xInCell = localX - idx * (SPEED_BTN_W + SPEED_BTN_GAP);
+        if (idx < 0 || idx >= SPEED_BTN_COUNT || xInCell > SPEED_BTN_W) {
+            return -1;
+        }
+        return idx;
     }
 
     public static boolean isInAssetLeftArrow(float screenX, float screenY) {
@@ -149,7 +216,8 @@ public final class UiChrome {
             return false;
         }
         float w = Gdx.graphics.getWidth();
-        float left = w - ASSET_PAD - ARROW_SIZE;
+        // Right arrow sits between the asset strip and the menu button.
+        float left = w - ASSET_PAD - MENU_BTN_W - ASSET_PAD - ARROW_SIZE;
         float top = (ASSET_BAR_HEIGHT - ARROW_SIZE) * 0.5f;
         float bottom = top + ARROW_SIZE;
         return screenX >= left

@@ -48,8 +48,8 @@ public class Renderer2D implements GameRenderer {
 
     private static final float CAMERA_SPEED = 400f;
     private static final float ZOOM_SPEED = 0.1f;
-    private static final float MIN_ZOOM = 0.3f;
-    private static final float MAX_ZOOM = 2f;
+    private static final float MIN_ZOOM = 0.2f;
+    private static final float MAX_ZOOM = 4.0f;
 
     private static final Color HOVER_VALID   = new Color(0.30f, 1f,    0.30f, 0.90f);
     private static final Color HOVER_INVALID = new Color(1f,    0.18f, 0.10f, 0.95f);
@@ -153,6 +153,7 @@ public class Renderer2D implements GameRenderer {
         drawTileSurface(map);
         drawGridLines(map);
         drawDecorations(state);
+        drawTrafficLightOverlays(state);
         drawVehicles(state);
         drawTownNames(state);
         drawBuildPreview(map);
@@ -202,6 +203,65 @@ public class Renderer2D implements GameRenderer {
         }
 
         batch.end();
+        Gdx.gl.glDisable(GL20.GL_BLEND);
+    }
+
+    private static final Color TL_GREEN      = new Color(0.10f, 0.90f, 0.20f, 0.95f);
+    private static final Color TL_RED        = new Color(0.95f, 0.12f, 0.10f, 0.95f);
+    private static final Color TL_DIM_GREEN  = new Color(0.04f, 0.22f, 0.06f, 0.80f);
+    private static final Color TL_DIM_RED    = new Color(0.22f, 0.03f, 0.03f, 0.80f);
+    private static final Color TL_HOUSING    = new Color(0.08f, 0.08f, 0.08f, 0.92f);
+
+    /**
+     * Draws a small traffic-light housing (dark box) with a red bulb on top and a green
+     * bulb on the bottom above each placed traffic-light tile.  Only the active bulb is
+     * lit; the other is dark, exactly like a real traffic light.
+     * The horizontal direction is used as the reference signal for the overlay.
+     */
+    private void drawTrafficLightOverlays(GameState state) {
+        java.util.List<int[]> lights = state.getTrafficLightTiles();
+        if (lights.isEmpty()) {
+            return;
+        }
+        GameMap tlMap = state.getMap();
+        final float DOT_R    = 4.0f;
+        final float DOT_GAP  = 3.0f;   // vertical gap between the two bulbs
+        final float DOT_RISE = 18f;     // pixels above the tile top point
+        final float PAD      = 2.5f;    // housing padding around bulbs
+
+        float housingW = (DOT_R + PAD) * 2f;
+        float housingH = DOT_R * 2f + DOT_GAP + DOT_R * 2f + PAD * 2f;
+
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+
+        shape.setProjectionMatrix(camera.combined);
+        shape.begin(ShapeRenderer.ShapeType.Filled);
+        for (int[] light : lights) {
+            int lx = light[0];
+            int ly = light[1];
+            float hOff = tlMap.isInBounds(lx, ly)
+                    ? heightOffset(tlMap.getTile(lx, ly).getHeight()) : 0f;
+            float cx = toScreenX(lx, ly);
+            float baseY = toScreenY(lx, ly) + hOff + TILE_H + DOT_RISE;
+
+            boolean hGreen = state.isTrafficLightGreenForHorizontal(lx, ly);
+
+            // Dark housing box
+            shape.setColor(TL_HOUSING);
+            shape.rect(cx - housingW / 2f, baseY, housingW, housingH);
+
+            // Green bulb (bottom) — lit when horizontal has green
+            float greenCY = baseY + PAD + DOT_R;
+            shape.setColor(hGreen ? TL_GREEN : TL_DIM_GREEN);
+            shape.circle(cx, greenCY, DOT_R, 12);
+
+            // Red bulb (top) — lit when horizontal has red
+            float redCY = greenCY + DOT_R + DOT_GAP + DOT_R;
+            shape.setColor(hGreen ? TL_DIM_RED : TL_RED);
+            shape.circle(cx, redCY, DOT_R, 12);
+        }
+        shape.end();
         Gdx.gl.glDisable(GL20.GL_BLEND);
     }
 
@@ -317,11 +377,23 @@ public class Renderer2D implements GameRenderer {
             font.setColor(0.95f, 0.95f, 0.95f, 1f);
             font.draw(batch, name, x, y);
 
+            // Population sub-label
+            font.getData().setScale(0.80f);
+            String popLabel = String.format("%,d", t.getPopulation());
+            glyphLayout.setText(font, popLabel);
+            float px = sx - glyphLayout.width * 0.5f;
+            float py = y - 12f;
+            font.setColor(0f, 0f, 0f, 0.65f);
+            font.draw(batch, popLabel, px + 1f, py - 1f);
+            font.setColor(0.65f, 0.90f, 1.00f, 0.95f);
+            font.draw(batch, popLabel, px, py);
+            font.getData().setScale(1f);
+
             String demandLabel = buildDemandLabel(state, i);
             if (!demandLabel.isEmpty()) {
                 glyphLayout.setText(font, demandLabel);
                 float dx = sx - glyphLayout.width * 0.5f;
-                float dy = y - 14f;
+                float dy = y - 26f; // pushed down to make room for population label
                 font.setColor(0f, 0f, 0f, 0.7f);
                 font.draw(batch, demandLabel, dx + 1f, dy - 1f);
                 font.setColor(1f, 0.85f, 0.25f, 1f);
@@ -810,12 +882,43 @@ public class Renderer2D implements GameRenderer {
     @Override
     public void resize(int width, int height) {
         camera.setToOrtho(false, width, height);
-        int midTile = 32;
-        camera.position.set(
-                toScreenX(midTile, midTile),
-                toScreenY(midTile, midTile),
-                0
-        );
+    }
+
+    /**
+     * Sets the camera to a comfortable starting position for a new game: zoom=1,
+     * centred on the map's isometric midpoint. Call once after the map is generated.
+     */
+    public void initCameraForMap(int mapW, int mapH) {
+        camera.zoom = 1.0f;
+        camera.position.set(toScreenX(mapW / 2, mapH / 2), toScreenY(mapW / 2, mapH / 2), 0);
+        camera.update();
+    }
+
+    /**
+     * Centers and zooms the camera so the full map is visible with a small margin.
+     * Call this once after the game map has been created.
+     */
+    public void fitCamera(int mapW, int mapH) {
+        int vw = Gdx.graphics.getWidth();
+        int vh = Gdx.graphics.getHeight();
+
+        // World-space extent of the isometric diamond
+        float worldW = (mapW + mapH) * (TILE_W / 2f);
+        float worldH = (mapW + mapH) * (TILE_H / 2f) + 64f; // +64 headroom for tall tiles/sprites
+
+        // The HUD chrome eats some screen pixels at the top; account for it
+        float availH = Math.max(1f, vh - UiChrome.totalTopHeight());
+
+        float fitZoomW = worldW / Math.max(1f, vw);
+        float fitZoomH = worldH / availH;
+        float zoom = Math.max(fitZoomW, fitZoomH) * 1.08f; // 8 % margin so edges aren't clipped
+        camera.zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom));
+
+        // Center on the map's isometric midpoint
+        int midX = mapW / 2;
+        int midY = mapH / 2;
+        camera.position.set(toScreenX(midX, midY), toScreenY(midX, midY), 0);
+        camera.update();
     }
 
     private void drawBirds(float delta, int mapW, int mapH) {

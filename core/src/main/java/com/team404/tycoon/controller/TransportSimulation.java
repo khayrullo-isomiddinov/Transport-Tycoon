@@ -21,6 +21,7 @@ public final class TransportSimulation {
     static final float MIN_TRAVEL_DISTANCE = 1f;
     static final float MAINTENANCE_INTERVAL_SECONDS = 120f;
     private static final float GLOBAL_VEHICLE_SPEED_MULTIPLIER = 0.5f;
+    static final float MIN_FOLLOWING_DISTANCE = 1.5f;
 
     private TransportSimulation() {
     }
@@ -46,6 +47,7 @@ public final class TransportSimulation {
             if (mustStopForMissingRoadConnection(state, route, vehicle) || mustStopForRedLight(state, route, vehicle)) {
                 movedTiles = 0f;
             }
+            movedTiles = Math.min(movedTiles, maxMoveBeforeVehicleAhead(state, route, vehicle));
             processMovement(state, route, vehicle, movedTiles);
         }
     }
@@ -82,6 +84,8 @@ public final class TransportSimulation {
 
     private static void processArrival(GameState state, Route route, Vehicle vehicle, int arrivedStopIndex) {
         int townIndex = route.getStops().get(arrivedStopIndex).getTownIndex();
+        // Record service so town growth logic knows this town is connected.
+        state.recordTownServiced(townIndex, state.getSimulationTimeSeconds());
         unloadAtTown(state, vehicle, townIndex);
         loadAtTown(state, route, vehicle, townIndex);
         processMaintenance(state, townIndex, vehicle);
@@ -92,7 +96,9 @@ public final class TransportSimulation {
         long revenue = 0L;
         for (Shipment shipment : vehicle.getLoadedShipments()) {
             if (shipment.getDestinationTownIndex() == townIndex) {
-                revenue += (long) shipment.getQuantity() * shipment.getUnitRevenue();
+                // Distance bonus: 1.0× at 0 tiles, up to 3.0× at ≥60 tiles.
+                float distMultiplier = 1f + Math.min(2f, shipment.getDistanceTiles() / 30f);
+                revenue += (long) (shipment.getQuantity() * shipment.getUnitRevenue() * distMultiplier);
             } else {
                 retained.add(shipment);
             }
@@ -111,6 +117,7 @@ public final class TransportSimulation {
         if (freeCapacity <= 0) {
             return;
         }
+        Town originTown = state.getTown(townIndex).orElse(null);
         Iterator<TransportDemand> iterator = state.getTransportDemandMutable().iterator();
         while (iterator.hasNext() && freeCapacity > 0) {
             TransportDemand demand = iterator.next();
@@ -125,11 +132,20 @@ public final class TransportSimulation {
             }
             int loaded = demand.removeQuantity(freeCapacity);
             if (loaded > 0) {
+                // Compute approximate tile distance between origin and destination town centres.
+                int distTiles = 0;
+                Town destTown = state.getTown(demand.getDestinationTownIndex()).orElse(null);
+                if (originTown != null && destTown != null) {
+                    int dx = originTown.getCenterX() - destTown.getCenterX();
+                    int dy = originTown.getCenterY() - destTown.getCenterY();
+                    distTiles = (int) Math.sqrt(dx * dx + dy * dy);
+                }
                 vehicle.addShipment(new Shipment(
                         demand.getContentType(),
                         demand.getDestinationTownIndex(),
                         loaded,
-                        demand.getUnitRevenue()));
+                        demand.getUnitRevenue(),
+                        distTiles));
                 freeCapacity -= loaded;
             }
             if (demand.isDepleted()) {
@@ -206,17 +222,44 @@ public final class TransportSimulation {
         return path.size() < 2;
     }
 
-    /**
-     * Each traffic light gets a deterministic phase offset derived from its tile position,
-     * so intersections cycle independently rather than all switching at the same instant.
-     */
     private static boolean isLightGreenForDirection(GameState state, int lx, int ly, boolean horizontal) {
-        float h = state.getTrafficLightHorizontalGreenSeconds();
-        float v = state.getTrafficLightVerticalGreenSeconds();
-        float cycle = h + v;
-        float phaseOffset = ((lx * 7 + ly * 13) & 0xFF) / 256f * cycle;
-        float t = (state.getSimulationTimeSeconds() + phaseOffset) % cycle;
-        return horizontal == (t < h);
+        return horizontal == state.isTrafficLightGreenForHorizontal(lx, ly);
+    }
+
+    /**
+     * Returns how many tiles this vehicle may move before it would be closer than
+     * MIN_FOLLOWING_DISTANCE to the nearest vehicle directly ahead of it on the same
+     * route leg.  Returns Float.MAX_VALUE when there is no vehicle blocking ahead.
+     */
+    private static float maxMoveBeforeVehicleAhead(GameState state, Route route, Vehicle vehicle) {
+        int stopCount = route.getStopCount();
+        int myStop = vehicle.getCurrentStopIndex() % stopCount;
+        float myProgress = vehicle.getLegProgressTiles();
+
+        float closestGap = Float.MAX_VALUE;
+        for (Vehicle other : state.getVehiclesMutable()) {
+            if (other == vehicle) {
+                continue;
+            }
+            if (!other.getRouteId().equals(route.getId())) {
+                continue;
+            }
+            if (other.getCurrentStopIndex() % stopCount != myStop) {
+                continue;
+            }
+            float otherProgress = other.getLegProgressTiles();
+            if (otherProgress > myProgress) {
+                float gap = otherProgress - myProgress;
+                if (gap < closestGap) {
+                    closestGap = gap;
+                }
+            }
+        }
+
+        if (closestGap == Float.MAX_VALUE) {
+            return Float.MAX_VALUE;
+        }
+        return Math.max(0f, closestGap - MIN_FOLLOWING_DISTANCE);
     }
 
     private static boolean isNearLine(int lx, int ly, Town fromTown, Town toTown) {

@@ -25,6 +25,9 @@ public class GameState {
     private float simulationTimeSeconds;
     private float trafficLightHorizontalGreenSeconds = 4.0f;
     private float trafficLightVerticalGreenSeconds = 4.0f;
+    private String companyName = "Player Co.";
+    private Difficulty difficulty = Difficulty.NORMAL;
+    private long peakBalance;
 
     public GameState(int mapWidth, int mapHeight) {
         this.map = new GameMap(mapWidth, mapHeight);
@@ -97,6 +100,31 @@ public class GameState {
         return trafficLightVerticalGreenSeconds;
     }
 
+    public String getCompanyName() {
+        return companyName;
+    }
+
+    public void setCompanyName(String companyName) {
+        this.companyName = (companyName == null || companyName.trim().isEmpty()) ? "Player Co." : companyName.trim();
+    }
+
+    public Difficulty getDifficulty() {
+        return difficulty;
+    }
+
+    public void setDifficulty(Difficulty difficulty) {
+        this.difficulty = difficulty == null ? Difficulty.NORMAL : difficulty;
+    }
+
+    public long getPeakBalance() {
+        return peakBalance;
+    }
+
+    /** Returns the in-game year: simulation starts in 1950, one year per 60 real seconds. */
+    public int getGameYear() {
+        return 1950 + (int) (simulationTimeSeconds / 60f);
+    }
+
     public boolean isBankrupt() {
         return bankrupt;
     }
@@ -111,6 +139,9 @@ public class GameState {
         if (balance >= 0) {
             this.bankrupt = false;
         }
+        if (balance > peakBalance) {
+            peakBalance = balance;
+        }
     }
 
     public void addIncome(long income) {
@@ -119,6 +150,9 @@ public class GameState {
         }
         this.balance += income;
         this.lifetimeIncome += income;
+        if (this.balance > peakBalance) {
+            peakBalance = this.balance;
+        }
     }
 
     /**
@@ -165,6 +199,20 @@ public class GameState {
         if (deltaSeconds > 0f) {
             this.simulationTimeSeconds += deltaSeconds;
         }
+    }
+
+    /**
+     * Returns true when the horizontal direction currently has a green light at the given tile.
+     * Each traffic light gets a deterministic phase offset derived from its tile position so that
+     * intersections cycle independently rather than all switching at the same instant.
+     */
+    public boolean isTrafficLightGreenForHorizontal(int lx, int ly) {
+        float h = trafficLightHorizontalGreenSeconds;
+        float v = trafficLightVerticalGreenSeconds;
+        float cycle = h + v;
+        float phaseOffset = ((lx * 7 + ly * 13) & 0xFF) / 256f * cycle;
+        float t = (simulationTimeSeconds + phaseOffset) % cycle;
+        return t < h;
     }
 
     public void addRoute(Route route) {
@@ -355,6 +403,16 @@ public class GameState {
             }
         }
         return false;
+    }
+
+    /**
+     * Records that a vehicle visited the given town at the given simulation time.
+     * Used by town growth logic.
+     */
+    public void recordTownServiced(int townIndex, float simTime) {
+        if (townIndex >= 0 && townIndex < towns.size()) {
+            towns.get(townIndex).setLastServicedTime(simTime);
+        }
     }
 
     public List<int[]> getTrafficLightTiles() {

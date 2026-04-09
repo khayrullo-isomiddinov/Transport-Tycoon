@@ -126,6 +126,28 @@ public class InputController {
         return garagePurchaseContentType;
     }
 
+    private boolean menuRequested = false;
+
+    public void requestMenu() {
+        menuRequested = true;
+    }
+
+    public boolean isMenuRequested() {
+        return menuRequested;
+    }
+
+    public void clearMenuRequest() {
+        menuRequested = false;
+    }
+
+    public void setGameSpeedIndex(int idx) {
+        gameController.setSpeedIndex(idx);
+    }
+
+    public int getGameSpeedIndex() {
+        return gameController.getSpeedIndex();
+    }
+
     public void adjustTrafficLightHorizontalGreen(float deltaSeconds) {
         gameController.adjustTrafficLightHorizontalGreenSeconds(deltaSeconds);
     }

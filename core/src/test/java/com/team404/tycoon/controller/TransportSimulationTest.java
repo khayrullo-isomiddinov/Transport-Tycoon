@@ -61,8 +61,10 @@ class TransportSimulationTest {
 
         assertTrue(state.getTransportDemand().isEmpty(), "Demand should be fully loaded and delivered");
         assertTrue(vehicle.getLoadedShipments().isEmpty(), "Vehicle should unload at destination");
-        assertEquals(170L, state.getBalance(), "Income should equal delivered quantity * unit revenue");
-        assertEquals(170L, state.getLifetimeIncome(), "Lifetime income should track successful deliveries");
+        // Revenue is distance-scaled: distance=16 tiles → multiplier=1+(16/30)≈1.533
+        // Passengers: (long)(4*20*1.533)=122, Goods: (long)(3*30*1.533)=138, total=260
+        assertEquals(260L, state.getBalance(), "Income should include distance-scaled revenue");
+        assertEquals(260L, state.getLifetimeIncome(), "Lifetime income should track successful deliveries");
     }
 
     @Test
@@ -87,7 +89,8 @@ class TransportSimulationTest {
 
         new GameController(state).update(1.0f);
 
-        assertEquals(50L, state.getBalance(), "Only valid, compatible passenger demand should be delivered");
+        // Distance A→B = 9 tiles → multiplier = 1+(9/30)=1.3 → (long)(5*10*1.3)=65
+        assertEquals(65L, state.getBalance(), "Only valid, compatible passenger demand should be delivered (with distance bonus)");
         assertEquals(2, state.getTransportDemand().size(), "Invalid destination and incompatible goods remain pending");
     }
 
@@ -96,17 +99,54 @@ class TransportSimulationTest {
         GameState state = new GameState(32, 32);
         state.addTown(new Town("A", 2, 5));
         state.addTown(new Town("B", 18, 5));
+        // Build a driveable road between the two towns so the vehicle would normally move.
+        // The traffic light at (10,5) is the only reason it should stop.
+        for (int x = 2; x <= 18; x++) {
+            if (x == 10) {
+                state.addDecoration(new PlacedDecoration(x, 5, "resources/trafficlights.png", 1, 1));
+            } else {
+                state.addDecoration(new PlacedDecoration(x, 5, "resources/highway-straight.png", 1, 1));
+            }
+        }
         state.addRoute(new Route("r-3", List.of(new RouteStop(0), new RouteStop(1))));
+        // Horizontal green = 1s, so at simulation time ~1.5s the horizontal direction is red.
         state.setTrafficLightDurations(1f, 10f);
 
         VehicleType bus = new VehicleType("Bus", 10, 8f, EnumSet.of(TransportContentType.PASSENGERS));
         Vehicle vehicle = new Vehicle("v-3", "r-3", bus, 0);
         state.addVehicle(vehicle);
-        state.addDecoration(new PlacedDecoration(10, 5, "resources/trafficlights.png", 1, 1));
 
         new GameController(state).update(1.5f);
 
         assertEquals(0f, vehicle.getLegProgressTiles(), 0.0001f, "Vehicle should remain stopped at red signal");
+    }
+
+    @Test
+    void vehicleMovesOnGreenTrafficLight() {
+        GameState state = new GameState(32, 32);
+        state.addTown(new Town("A", 2, 5));
+        state.addTown(new Town("B", 18, 5));
+        // Same road layout as the red-light test.
+        for (int x = 2; x <= 18; x++) {
+            if (x == 10) {
+                state.addDecoration(new PlacedDecoration(x, 5, "resources/trafficlights.png", 1, 1));
+            } else {
+                state.addDecoration(new PlacedDecoration(x, 5, "resources/highway-straight.png", 1, 1));
+            }
+        }
+        state.addRoute(new Route("r-green", List.of(new RouteStop(0), new RouteStop(1))));
+        // Horizontal green = 10s. With the phase offset for tile (10,5), the horizontal
+        // direction is green from the very start of the simulation, so a short update moves
+        // the vehicle rather than blocking it.
+        state.setTrafficLightDurations(10f, 1f);
+
+        VehicleType bus = new VehicleType("Bus", 10, 8f, EnumSet.of(TransportContentType.PASSENGERS));
+        Vehicle vehicle = new Vehicle("v-green", "r-green", bus, 0);
+        state.addVehicle(vehicle);
+
+        new GameController(state).update(0.1f);
+
+        assertTrue(vehicle.getLegProgressTiles() > 0f, "Vehicle should move when traffic light is green for its direction");
     }
 
     @Test
@@ -389,6 +429,31 @@ class TransportSimulationTest {
 
         assertTrue(tile4Accepted, "Tile at height 2 adjacent to height-1 road must be accepted");
         assertTrue(tile5Rejected, "Tile at height 4 adjacent to height-2 road must be rejected");
+    }
+
+    @Test
+    void vehiclesBehindDoNotPassThroughVehiclesAhead() {
+        GameState state = new GameState(32, 32);
+        state.addTown(new Town("A", 2, 5));
+        state.addTown(new Town("B", 20, 5));
+        paintHorizontalRoad(state, 2, 20, 5);
+        state.addRoute(new Route("r-coll", List.of(new RouteStop(0), new RouteStop(1))));
+
+        VehicleType bus = new VehicleType("Bus", 10, 8f, EnumSet.of(TransportContentType.PASSENGERS));
+        // Place vehicle A ahead of vehicle B on the same leg.
+        Vehicle ahead  = new Vehicle("v-ahead",  "r-coll", bus, 0);
+        Vehicle behind = new Vehicle("v-behind", "r-coll", bus, 0);
+        ahead.setLegProgressTiles(5f);
+        behind.setLegProgressTiles(0f);
+        state.addVehicle(ahead);
+        state.addVehicle(behind);
+
+        new GameController(state).update(2.0f);
+
+        float gap = ahead.getLegProgressTiles() - behind.getLegProgressTiles();
+        assertTrue(gap >= TransportSimulation.MIN_FOLLOWING_DISTANCE - 0.01f,
+                "Vehicles must keep at least MIN_FOLLOWING_DISTANCE gap, got: " + gap);
+        assertTrue(behind.getLegProgressTiles() >= 0f, "Behind vehicle must not go negative");
     }
 
     private static void paintHorizontalRoad(GameState state, int fromX, int toX, int y) {

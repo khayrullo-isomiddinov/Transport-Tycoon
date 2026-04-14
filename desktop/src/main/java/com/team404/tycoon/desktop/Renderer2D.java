@@ -573,12 +573,13 @@ public class Renderer2D implements GameRenderer {
                 float sx = toScreenX(x, y);
                 float sy = toScreenY(x, y);
                 float hOff = heightOffset(tile.getHeight());
+                float faceAnchorY = sy + hOff + TILE_H / 2f;
 
                 // Left cliff — when this tile is higher than its (x-1, y) neighbour.
                 float leftOff = map.isInBounds(x - 1, y)
                         ? heightOffset(map.getTile(x - 1, y).getHeight()) : 0f;
                 if (hOff > leftOff) {
-                    drawLeftCliff(sx, sy + hOff, hOff - leftOff,
+                    drawLeftCliff(sx, faceAnchorY, hOff - leftOff,
                             cliffLeftColor(tile.getType(), tile.getHeight()));
                 }
 
@@ -586,7 +587,7 @@ public class Renderer2D implements GameRenderer {
                 float rightOff = map.isInBounds(x, y - 1)
                         ? heightOffset(map.getTile(x, y - 1).getHeight()) : 0f;
                 if (hOff > rightOff) {
-                    drawRightCliff(sx, sy + hOff, hOff - rightOff,
+                    drawRightCliff(sx, faceAnchorY, hOff - rightOff,
                             cliffRightColor(tile.getType(), tile.getHeight()));
                 }
 
@@ -597,7 +598,7 @@ public class Renderer2D implements GameRenderer {
                         || tile.getType() == TileType.CITY) {
                     continue;
                 }
-                drawDiamond(sx, sy + hOff, colorFor(tile.getType(), tile.getHeight(), x, y));
+                drawDiamond(sx, sy + hOff, colorFor(tile.getType(), tile.getHeight(), x, y), map, x, y, tile.getHeight());
             }
         }
         shape.end();
@@ -650,6 +651,27 @@ public class Renderer2D implements GameRenderer {
         shape.setColor(color);
         shape.triangle(sx, by + TILE_H, sx - hw, by + hh, sx, by);
         shape.triangle(sx, by + TILE_H, sx + hw, by + hh, sx, by);
+    }
+
+    private void drawDiamond(float sx, float sy, Color color, GameMap map, int tileX, int tileY, int tileHeight) {
+        float hw = TILE_W / 2f;
+        float hh = TILE_H / 2f;
+        float by = sy + hh;
+        int leftDrop = map.isInBounds(tileX - 1, tileY) ? Math.max(0, tileHeight - map.getTile(tileX - 1, tileY).getHeight()) : 0;
+        int rightDrop = map.isInBounds(tileX, tileY - 1) ? Math.max(0, tileHeight - map.getTile(tileX, tileY - 1).getHeight()) : 0;
+        float leftFactor = leftDrop >= 2 ? 1.14f : (leftDrop == 1 ? 1.08f : 1.03f);
+        float rightFactor = rightDrop >= 2 ? 0.84f : (rightDrop == 1 ? 0.90f : 0.96f);
+        shape.setColor(shade(color, leftFactor));
+        shape.triangle(sx, by + TILE_H, sx - hw, by + hh, sx, by);
+        shape.setColor(shade(color, rightFactor));
+        shape.triangle(sx, by + TILE_H, sx + hw, by + hh, sx, by);
+    }
+
+    private static Color shade(Color base, float factor) {
+        float r = Math.min(1f, Math.max(0f, base.r * factor));
+        float g = Math.min(1f, Math.max(0f, base.g * factor));
+        float b = Math.min(1f, Math.max(0f, base.b * factor));
+        return new Color(r, g, b, base.a);
     }
 
     private void drawHoverHighlight(GameState state) {
@@ -815,24 +837,20 @@ public class Renderer2D implements GameRenderer {
 
         shape.begin(ShapeRenderer.ShapeType.Line);
         shape.setColor(GRID_COLOR);
-
-        int w = map.getWidth();
-        int h = map.getHeight();
-
-        for (int x = 0; x <= w; x++) {
-            float x1 = toScreenX(x, 0);
-            float y1 = toScreenY(x, 0) + TILE_H / 2f;
-            float x2 = toScreenX(x, h);
-            float y2 = toScreenY(x, h) + TILE_H / 2f;
-            shape.line(x1, y1, x2, y2);
-        }
-
-        for (int y = 0; y <= h; y++) {
-            float x1 = toScreenX(0, y);
-            float y1 = toScreenY(0, y) + TILE_H / 2f;
-            float x2 = toScreenX(w, y);
-            float y2 = toScreenY(w, y) + TILE_H / 2f;
-            shape.line(x1, y1, x2, y2);
+        for (int y = map.getHeight() - 1; y >= 0; y--) {
+            for (int x = 0; x < map.getWidth(); x++) {
+                Tile tile = map.getTile(x, y);
+                float hOff = heightOffset(tile.getHeight());
+                float sx = toScreenX(x, y);
+                float sy = toScreenY(x, y) + hOff;
+                float hw = TILE_W / 2f;
+                float hh = TILE_H / 2f;
+                float by = sy + hh;
+                shape.line(sx, by + TILE_H, sx - hw, by + hh);
+                shape.line(sx - hw, by + hh, sx, by);
+                shape.line(sx, by, sx + hw, by + hh);
+                shape.line(sx + hw, by + hh, sx, by + TILE_H);
+            }
         }
 
         shape.end();

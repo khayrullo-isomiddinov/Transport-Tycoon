@@ -38,6 +38,7 @@ public class Renderer2D implements GameRenderer {
 
     public static final float TILE_W = 64f;
     public static final float TILE_H = 32f;
+    private static final int FLAT_HEIGHT = 1;
     private static final float EDGE_DEPTH = 16f;
     /** Screen-pixel lift per height unit above flat (H:1). H:2 = +16 px, H:3 = +32 px. */
     private static final float HEIGHT_STEP = TILE_H * 0.5f;
@@ -109,7 +110,7 @@ public class Renderer2D implements GameRenderer {
 
     /** Returns how many screen pixels a tile at the given height should be lifted above the baseline. */
     private static float heightOffset(int height) {
-        return Math.max(0, height - 1) * HEIGHT_STEP;
+        return Math.max(0, height - FLAT_HEIGHT) * HEIGHT_STEP;
     }
 
     public void setHoverTile(int tileX, int tileY) {

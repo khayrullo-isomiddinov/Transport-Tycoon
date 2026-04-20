@@ -1,6 +1,10 @@
 # Team 404
 mvn clean install && mvn exec:exec -pl desktop
 
+cd "/Users/ulookt/Desktop/apps/Team 404/team-404"
+mvn clean install
+mvn -pl desktop exec:exec -Dexec.args="-XstartOnFirstThread -classpath %classpath com.team404.tycoon.desktop.DesktopLauncher"
+
 ## Getting started
 
 To make it easy for you to get started with GitLab, here's a list of recommended next steps.

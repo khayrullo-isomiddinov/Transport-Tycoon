@@ -169,12 +169,6 @@ public class AssetPaletteState {
         if (n.startsWith("car-")) {
             return true;
         }
-        // Building/structure sprites (they grow automatically, not manually placed)
-        if (n.contains("building") || n.contains("village") || n.contains("garage")
-                || n.contains("teplitsa") || n.contains("playground")
-                || n.contains("somegrey") || n.contains("pink")) {
-            return true;
-        }
         return false;
     }
 

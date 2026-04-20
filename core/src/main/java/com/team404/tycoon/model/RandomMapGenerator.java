@@ -26,7 +26,8 @@ public final class RandomMapGenerator {
         paintForests(map, rng);
         generateHeights(map, rng);
         generateTowns(state, map, rng);
-        // Inter-town roads are NOT generated — the player must connect towns themselves.
+        // Keep starter simulation alive by ensuring towns have a connected backbone.
+        connectTownRoadNetwork(state, map);
         decorateAllRoadTiles(state, map, rng);
         sprinkleNatureDecor(state, map, rng);
         state.bootstrapStarterTransport();
@@ -207,8 +208,12 @@ public final class RandomMapGenerator {
             return;
         }
         List<int[]> path = findPathAvoidingWater(map, sx, sy, ex, ey);
+        if (path.isEmpty()) {
+            // Fallback: carve a direct L-shaped corridor when water blocks BFS connectivity.
+            path = buildDirectPath(sx, sy, ex, ey);
+        }
         for (int[] tile : path) {
-            paintRoadTile(map, tile[0], tile[1]);
+            forceRoadTile(map, tile[0], tile[1]);
         }
     }
 
@@ -267,6 +272,32 @@ public final class RandomMapGenerator {
         path.add(new int[]{sx, sy});
         Collections.reverse(path);
         return path;
+    }
+
+    private static List<int[]> buildDirectPath(int sx, int sy, int ex, int ey) {
+        List<int[]> path = new ArrayList<>();
+        int x = sx;
+        int y = sy;
+        path.add(new int[]{x, y});
+        while (x != ex) {
+            x += Integer.compare(ex, x);
+            path.add(new int[]{x, y});
+        }
+        while (y != ey) {
+            y += Integer.compare(ey, y);
+            path.add(new int[]{x, y});
+        }
+        return path;
+    }
+
+    private static void forceRoadTile(GameMap map, int x, int y) {
+        if (!map.isInBounds(x, y)) {
+            return;
+        }
+        map.getTile(x, y).setType(TileType.ROAD);
+        if (map.getTile(x, y).getHeight() == 0) {
+            map.getTile(x, y).setHeight(1);
+        }
     }
 
     private static int[] relocateOffWater(GameMap map, int cx, int cy, int maxRadius) {

@@ -14,7 +14,10 @@ import com.team404.tycoon.desktop.assets.AssetPaletteState;
 import com.team404.tycoon.desktop.assets.DecorationTextureCache;
 import com.team404.tycoon.model.BuildMode;
 import com.team404.tycoon.model.EconomyConfig;
+import com.team404.tycoon.model.GameMap;
 import com.team404.tycoon.model.GameState;
+import com.team404.tycoon.model.Tile;
+import com.team404.tycoon.model.TileType;
 
 public class HudRenderer {
 
@@ -55,7 +58,16 @@ public class HudRenderer {
         font.setColor(Color.WHITE);
     }
 
-    public void render(AssetPaletteState palette, DecorationTextureCache cache, GameState state, BuildMode currentMode, int speedIndex, boolean terrainTooSteep, boolean terraformRejected) {
+    public void render(
+            AssetPaletteState palette,
+            DecorationTextureCache cache,
+            GameState state,
+            BuildMode currentMode,
+            int speedIndex,
+            int hoverTileX,
+            int hoverTileY,
+            boolean terrainTooSteep,
+            boolean terraformRejected) {
         float w = Gdx.graphics.getWidth();
         float h = Gdx.graphics.getHeight();
         float visible  = UiChrome.assetContentWidth(w);
@@ -80,6 +92,7 @@ public class HudRenderer {
         batch.end();
         drawMenuButton(w, h);
         drawSpeedButtons(w, h, speedIndex);
+        drawTerrainHoverInfo(w, h, state, hoverTileX, hoverTileY);
 
         drawAssetSelectionOutline(w, h, palette);
         drawAssetHoverTooltip(w, h, palette);
@@ -94,6 +107,63 @@ public class HudRenderer {
         }
         if (terraformRejected) {
             drawTerraformRejectedWarning(w, h);
+        }
+    }
+
+    private void drawTerrainHoverInfo(float w, float h, GameState state, int hoverTileX, int hoverTileY) {
+        GameMap map = state.getMap();
+        if (!map.isInBounds(hoverTileX, hoverTileY)) {
+            return;
+        }
+        Tile tile = map.getTile(hoverTileX, hoverTileY);
+        String terrainLabel = terrainLabel(tile.getType());
+        String info = String.format("Tile (%d,%d)  %s  H:%d", hoverTileX, hoverTileY, terrainLabel, tile.getHeight());
+
+        font.getData().setScale(0.92f);
+        glyphLayout.setText(font, info);
+        float padX = 9f;
+        float padY = 5f;
+        float boxW = glyphLayout.width + padX * 2f;
+        float boxH = glyphLayout.height + padY * 2f;
+        float boxX = w - boxW - 12f;
+        float boxY = 12f;
+
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+        shape.begin(ShapeRenderer.ShapeType.Filled);
+        shape.setColor(0.08f, 0.10f, 0.15f, 0.84f);
+        shape.rect(boxX, boxY, boxW, boxH);
+        shape.end();
+        shape.begin(ShapeRenderer.ShapeType.Line);
+        shape.setColor(0.35f, 0.45f, 0.62f, 0.95f);
+        shape.rect(boxX, boxY, boxW, boxH);
+        shape.end();
+        Gdx.gl.glDisable(GL20.GL_BLEND);
+
+        batch.begin();
+        font.setColor(0.84f, 0.92f, 1f, 1f);
+        font.draw(batch, info, boxX + padX, boxY + padY + glyphLayout.height);
+        font.setColor(Color.WHITE);
+        font.getData().setScale(1f);
+        batch.end();
+    }
+
+    private static String terrainLabel(TileType type) {
+        switch (type) {
+            case EMPTY:
+                return "Grass";
+            case WATER:
+                return "Water";
+            case FOREST:
+                return "Forest";
+            case ROAD:
+                return "Road";
+            case CITY:
+                return "City";
+            case INDUSTRIAL_FACILITY:
+                return "Industry";
+            default:
+                return type.name();
         }
     }
 

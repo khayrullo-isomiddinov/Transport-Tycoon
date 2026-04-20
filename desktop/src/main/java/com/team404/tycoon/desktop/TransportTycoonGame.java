@@ -30,6 +30,7 @@ public class TransportTycoonGame extends ApplicationAdapter {
     private GameController        gameController;
     private InputController       inputController;
     private GameRenderer          renderer;
+    private Renderer2D            renderer2D;
     private HudRenderer           hudRenderer;
     private DecorationTextureCache decorationTextureCache;
     private AssetPaletteState     assetPaletteState;
@@ -59,7 +60,7 @@ public class TransportTycoonGame extends ApplicationAdapter {
         List<String> pngPaths  = listPngResourcePaths();
         assetPaletteState      = new AssetPaletteState(pngPaths);
 
-        Renderer2D renderer2D = new Renderer2D(decorationTextureCache, inputController);
+        renderer2D = new Renderer2D(decorationTextureCache, inputController);
         renderer    = renderer2D;
         hudRenderer = new HudRenderer();
         renderer.resize(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
@@ -82,6 +83,7 @@ public class TransportTycoonGame extends ApplicationAdapter {
 
     private void disposeGameObjects() {
         if (renderer              != null) { renderer.dispose();              renderer              = null; }
+        renderer2D = null;
         if (hudRenderer           != null) { hudRenderer.dispose();           hudRenderer           = null; }
         if (decorationTextureCache != null) { decorationTextureCache.dispose(); decorationTextureCache = null; }
     }
@@ -132,6 +134,8 @@ public class TransportTycoonGame extends ApplicationAdapter {
                     gameController.getGameState(),
                     inputController.getCurrentMode(),
                     inputController.getGameSpeedIndex(),
+                    renderer2D != null ? renderer2D.getHoverTileX() : -1,
+                    renderer2D != null ? renderer2D.getHoverTileY() : -1,
                     inputController.isLastPlacementRejected(),
                     inputController.isLastTerraformRejected());
         }

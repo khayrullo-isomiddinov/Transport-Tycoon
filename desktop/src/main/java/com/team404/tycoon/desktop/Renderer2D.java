@@ -912,6 +912,14 @@ public class Renderer2D implements GameRenderer {
         return camera;
     }
 
+    public int getHoverTileX() {
+        return hoverTileX;
+    }
+
+    public int getHoverTileY() {
+        return hoverTileY;
+    }
+
     @Override
     public void resize(int width, int height) {
         camera.setToOrtho(false, width, height);

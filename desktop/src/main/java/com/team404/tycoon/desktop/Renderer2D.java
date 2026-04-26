@@ -685,7 +685,7 @@ public class Renderer2D implements GameRenderer {
         String selectedPath = inputController.getSelectedAssetPath();
         BuildMode mode = inputController.getCurrentMode();
         if (selectedPath != null && EconomyConfig.isRoadDecoration(selectedPath)) {
-            boolean valid = placementValidator.canBuildRoad(map, state, hoverTileX, hoverTileY);
+            boolean valid = placementValidator.canBuildRoad(map, state, hoverTileX, hoverTileY, null);
             outlineColor = valid ? HOVER_VALID : HOVER_INVALID;
         } else if (mode == BuildMode.RAISE_TERRAIN) {
             boolean valid = placementValidator.canRaiseTile(map, hoverTileX, hoverTileY);

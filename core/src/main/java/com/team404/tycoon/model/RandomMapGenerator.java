@@ -210,9 +210,9 @@ public final class RandomMapGenerator {
             return;
         }
         List<int[]> path = findPathAvoidingWater(map, sx, sy, ex, ey);
+        // No water crossing at this stage: if no dry path exists, skip this highway.
         if (path.isEmpty()) {
-            // Fallback: carve a direct L-shaped corridor when water blocks BFS connectivity.
-            path = buildDirectPath(sx, sy, ex, ey);
+            return;
         }
         for (int[] tile : path) {
             forceRoadTile(map, tile[0], tile[1]);
@@ -294,6 +294,9 @@ public final class RandomMapGenerator {
 
     private static void forceRoadTile(GameMap map, int x, int y) {
         if (!map.isInBounds(x, y)) {
+            return;
+        }
+        if (map.getTile(x, y).getType() == TileType.WATER) {
             return;
         }
         map.getTile(x, y).setType(TileType.ROAD);

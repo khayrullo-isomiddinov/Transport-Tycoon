@@ -2,7 +2,9 @@ package com.team404.tycoon.model;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 
@@ -18,6 +20,7 @@ public class GameState {
     private final List<Route> routes = new ArrayList<>();
     private final List<Vehicle> vehicles = new ArrayList<>();
     private final List<TransportDemand> transportDemand = new ArrayList<>();
+    private final Map<String, Integer> garagePurchaseCounts = new HashMap<>();
     private long balance;
     private long lifetimeIncome;
     private long lifetimeExpenses;
@@ -316,7 +319,11 @@ public class GameState {
     public boolean removeDecorationAtTile(int tileX, int tileY) {
         for (int i = decorations.size() - 1; i >= 0; i--) {
             if (decorations.get(i).occupiesTile(tileX, tileY)) {
+                PlacedDecoration removed = decorations.get(i);
                 decorations.remove(i);
+                if (isGarageDecoration(removed)) {
+                    garagePurchaseCounts.remove(garageKey(removed.getAnchorTileX(), removed.getAnchorTileY()));
+                }
                 return true;
             }
         }
@@ -329,6 +336,14 @@ public class GameState {
             if (d.occupiesTile(tileX, tileY)) {
                 return Optional.of(d);
             }
+        }
+        return Optional.empty();
+    }
+
+    public Optional<PlacedDecoration> findGarageAt(int tileX, int tileY) {
+        Optional<PlacedDecoration> decoration = findDecorationAt(tileX, tileY);
+        if (decoration.isPresent() && isGarageDecoration(decoration.get())) {
+            return decoration;
         }
         return Optional.empty();
     }
@@ -429,12 +444,20 @@ public class GameState {
     public List<int[]> getGarageTiles() {
         List<int[]> tiles = new ArrayList<>();
         for (PlacedDecoration d : decorations) {
-            String n = d.getResourcePath().toLowerCase();
-            if (n.contains("garage")) {
+            if (isGarageDecoration(d)) {
                 tiles.add(new int[]{d.getAnchorTileX(), d.getAnchorTileY()});
             }
         }
         return tiles;
+    }
+
+    public void incrementGaragePurchaseCount(int garageAnchorTileX, int garageAnchorTileY) {
+        String key = garageKey(garageAnchorTileX, garageAnchorTileY);
+        garagePurchaseCounts.put(key, garagePurchaseCounts.getOrDefault(key, 0) + 1);
+    }
+
+    public int getGaragePurchaseCount(int garageAnchorTileX, int garageAnchorTileY) {
+        return garagePurchaseCounts.getOrDefault(garageKey(garageAnchorTileX, garageAnchorTileY), 0);
     }
 
     public boolean isGarageConnectedToRoad(int garageTileX, int garageTileY) {
@@ -494,6 +517,14 @@ public class GameState {
 
     private boolean isRoadTile(int x, int y) {
         return map.isInBounds(x, y) && map.getTile(x, y).getType() == TileType.ROAD;
+    }
+
+    private static boolean isGarageDecoration(PlacedDecoration decoration) {
+        return decoration.getResourcePath().toLowerCase().contains("garage");
+    }
+
+    private static String garageKey(int garageAnchorTileX, int garageAnchorTileY) {
+        return garageAnchorTileX + ":" + garageAnchorTileY;
     }
 }
 

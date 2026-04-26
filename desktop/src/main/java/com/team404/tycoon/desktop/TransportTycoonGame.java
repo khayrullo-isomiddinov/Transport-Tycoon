@@ -72,7 +72,8 @@ public class TransportTycoonGame extends ApplicationAdapter {
                 inputController,
                 renderer2D,
                 gameController,
-                hudRenderer.getMinimapOverlay());
+                hudRenderer.getMinimapOverlay(),
+                hudRenderer.getObjectInspectorOverlay());
         gameInputMultiplexer = new InputMultiplexer(paletteInput, mapInput);
 
         appScreen = AppScreen.PLAYING;

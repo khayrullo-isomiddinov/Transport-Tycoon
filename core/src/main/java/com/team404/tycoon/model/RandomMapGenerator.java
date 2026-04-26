@@ -159,6 +159,8 @@ public final class RandomMapGenerator {
             return;
         }
         map.getTile(x, y).setType(TileType.ROAD);
+        // For current project stage, generated roads must always be flat.
+        map.getTile(x, y).setHeight(1);
     }
 
     private static void generateTowns(GameState state, GameMap map, Random rng) {
@@ -295,9 +297,8 @@ public final class RandomMapGenerator {
             return;
         }
         map.getTile(x, y).setType(TileType.ROAD);
-        if (map.getTile(x, y).getHeight() == 0) {
-            map.getTile(x, y).setHeight(1);
-        }
+        // For current project stage, generated roads must always be flat.
+        map.getTile(x, y).setHeight(1);
     }
 
     private static int[] relocateOffWater(GameMap map, int cx, int cy, int maxRadius) {

@@ -2,7 +2,10 @@ package com.team404.tycoon.controller;
 
 import com.team404.tycoon.model.EconomyConfig;
 import com.team404.tycoon.model.GameState;
+import com.team404.tycoon.model.PlacedDecoration;
+import com.team404.tycoon.model.RoadPathfinder;
 import com.team404.tycoon.model.Route;
+import com.team404.tycoon.model.RouteStop;
 import com.team404.tycoon.model.Town;
 import com.team404.tycoon.model.TransportContentType;
 import com.team404.tycoon.model.TransportDemand;
@@ -20,6 +23,7 @@ public class GameController {
     private static final float MIN_GREEN_SECONDS = 0.25f;
     private static final float DEFAULT_HORIZONTAL_GREEN_SECONDS = 4.0f;
     private static final float DEFAULT_VERTICAL_GREEN_SECONDS = 4.0f;
+    private static final int MAX_GARAGE_ROUTE_TOWN_DISTANCE = 12;
 
     /** Available game speed multipliers: paused, normal, fast, very fast. */
     public static final float[] SPEED_MULTIPLIERS = {0f, 1f, 2f, 4f};
@@ -178,10 +182,18 @@ public class GameController {
         if (gameState.isBankrupt()) {
             return false;
         }
-        if (!gameState.isGarageConnectedToRoad(garageTileX, garageTileY)) {
+        PlacedDecoration garage = gameState.findGarageAt(garageTileX, garageTileY).orElse(null);
+        if (garage == null) {
+            return false;
+        }
+        if (!gameState.isGarageConnectedToRoad(garage.getAnchorTileX(), garage.getAnchorTileY())) {
             return false;
         }
         if (gameState.getRoutes().isEmpty()) {
+            return false;
+        }
+        RouteSelection routeSelection = findUsableRouteSelection(garage.getAnchorTileX(), garage.getAnchorTileY());
+        if (routeSelection == null) {
             return false;
         }
         boolean isBus = contentType == TransportContentType.PASSENGERS;
@@ -189,17 +201,25 @@ public class GameController {
         if (!gameState.spendMoney(purchaseCost)) {
             return false;
         }
-        Route route = gameState.getRoutes().get(0);
-        String routeId = route.getId();
-        int stopCount = route.getStops().size();
-        int startStop = stopCount > 1 ? (int) Math.floorMod(System.nanoTime(), stopCount) : 0;
+        String routeId = routeSelection.routeId;
+        int startStop = routeSelection.startStopIndex;
         VehicleType type = new VehicleType(
                 isBus ? "Purchased Bus" : "Purchased Truck",
                 isBus ? 16 : 20,
                 isBus ? 4.2f : 3.6f,
                 Collections.singleton(contentType));
         String vehicleId = "veh-" + System.nanoTime();
-        gameState.addVehicle(new Vehicle(vehicleId, routeId, type, startStop));
+        try {
+            Vehicle created = new Vehicle(vehicleId, routeId, type, startStop);
+            // Avoid spawning exactly at a town center where decorations can visually hide the vehicle.
+            created.setLegProgressTiles(1.0f);
+            gameState.addVehicle(created);
+        } catch (RuntimeException ex) {
+            // Keep purchase atomic: if vehicle creation fails, refund immediately.
+            gameState.addIncome(purchaseCost);
+            return false;
+        }
+        gameState.incrementGaragePurchaseCount(garage.getAnchorTileX(), garage.getAnchorTileY());
         return true;
     }
 
@@ -253,5 +273,65 @@ public class GameController {
         boolean isBus = vehicle.getType().supports(TransportContentType.PASSENGERS)
                 && !vehicle.getType().supports(TransportContentType.GOODS);
         return isBus ? EconomyConfig.BUS_RESALE_VALUE : EconomyConfig.TRUCK_RESALE_VALUE;
+    }
+
+    private RouteSelection findUsableRouteSelection(int garageX, int garageY) {
+        RouteSelection best = null;
+        int bestDistance = Integer.MAX_VALUE;
+
+        for (Route route : gameState.getRoutes()) {
+            int stopCount = route.getStops().size();
+            if (stopCount < 2) {
+                continue;
+            }
+            for (int stopIndex = 0; stopIndex < stopCount; stopIndex++) {
+                if (isLegUsable(route, stopIndex)) {
+                    int distance = distanceToGarage(route.getStops().get(stopIndex), garageX, garageY);
+                    if (distance > MAX_GARAGE_ROUTE_TOWN_DISTANCE) {
+                        continue;
+                    }
+                    if (distance < bestDistance) {
+                        bestDistance = distance;
+                        best = new RouteSelection(route.getId(), stopIndex);
+                    }
+                }
+            }
+        }
+        return best;
+    }
+
+    private int distanceToGarage(RouteStop stop, int garageX, int garageY) {
+        Town town = gameState.getTown(stop.getTownIndex()).orElse(null);
+        if (town == null) {
+            return Integer.MAX_VALUE / 2;
+        }
+        return Math.abs(town.getCenterX() - garageX) + Math.abs(town.getCenterY() - garageY);
+    }
+
+    private boolean isLegUsable(Route route, int fromStopIndex) {
+        int stopCount = route.getStops().size();
+        int toStopIndex = (fromStopIndex + 1) % stopCount;
+        RouteStop fromStop = route.getStops().get(fromStopIndex);
+        RouteStop toStop = route.getStops().get(toStopIndex);
+        Town fromTown = gameState.getTown(fromStop.getTownIndex()).orElse(null);
+        Town toTown = gameState.getTown(toStop.getTownIndex()).orElse(null);
+        if (fromTown == null || toTown == null) {
+            return false;
+        }
+        if (RoadPathfinder.findRoadPath(gameState, fromTown, toTown, 6).size() >= 2) {
+            return true;
+        }
+        // Fallback: allow purchase if the vehicle can at least be placed on a nearby road tile.
+        return RoadPathfinder.findNearestRoadTile(gameState, fromTown.getCenterX(), fromTown.getCenterY(), 6) != null;
+    }
+
+    private static final class RouteSelection {
+        private final String routeId;
+        private final int startStopIndex;
+
+        private RouteSelection(String routeId, int startStopIndex) {
+            this.routeId = routeId;
+            this.startStopIndex = startStopIndex;
+        }
     }
 }

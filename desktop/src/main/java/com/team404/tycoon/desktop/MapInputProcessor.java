@@ -1,11 +1,13 @@
 package com.team404.tycoon.desktop;
 
+import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.InputProcessor;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.math.Vector3;
+import com.team404.tycoon.controller.GameController;
 import com.team404.tycoon.controller.InputController;
-import com.team404.tycoon.desktop.assets.AssetPaletteState;
+import com.team404.tycoon.model.GameMap;
 import com.team404.tycoon.model.TransportContentType;
 
 public class MapInputProcessor implements InputProcessor {
@@ -13,7 +15,8 @@ public class MapInputProcessor implements InputProcessor {
     private final OrthographicCamera camera;
     private final InputController inputController;
     private final Renderer2D renderer;
-    private final AssetPaletteState assetPaletteState;
+    private final GameController gameController;
+    private final MinimapOverlay minimapOverlay;
     private final Vector3 tmp = new Vector3();
 
     private int dragButton = -1;
@@ -27,11 +30,13 @@ public class MapInputProcessor implements InputProcessor {
             OrthographicCamera camera,
             InputController inputController,
             Renderer2D renderer,
-            AssetPaletteState assetPaletteState) {
+            GameController gameController,
+            MinimapOverlay minimapOverlay) {
         this.camera = camera;
         this.inputController = inputController;
         this.renderer = renderer;
-        this.assetPaletteState = assetPaletteState;
+        this.gameController = gameController;
+        this.minimapOverlay = minimapOverlay;
     }
 
     /**
@@ -47,6 +52,15 @@ public class MapInputProcessor implements InputProcessor {
 
     @Override
     public boolean touchDown(int screenX, int screenY, int pointer, int button) {
+        if (button == Input.Buttons.LEFT
+                && minimapOverlay.containsScreenPoint(screenX, screenY, Gdx.graphics.getHeight())) {
+            GameMap map = gameController.getGameState().getMap();
+            int[] tile = minimapOverlay.minimapPointToTile(screenX, screenY, Gdx.graphics.getHeight(), map);
+            renderer.centerCameraOnTile(tile[0], tile[1]);
+            renderer.setHoverTile(tile[0], tile[1]);
+            return true;
+        }
+
         if (UiChrome.isInTopChrome(screenX, screenY)) {
             return false;
         }
@@ -140,10 +154,6 @@ public class MapInputProcessor implements InputProcessor {
     private boolean isVerticalRoadSelected() {
         String selected = inputController.getSelectedAssetPath();
         return selected != null && selected.toLowerCase().contains("highway-top-left");
-    }
-
-    private boolean isLinearRoadSelected() {
-        return isHorizontalRoadSelected() || isVerticalRoadSelected();
     }
 
     private Renderer2D.BuildPreviewMode pickBuildPreviewMode() {

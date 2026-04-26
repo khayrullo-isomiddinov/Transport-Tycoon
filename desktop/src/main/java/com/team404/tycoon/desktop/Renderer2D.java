@@ -920,6 +920,11 @@ public class Renderer2D implements GameRenderer {
         return hoverTileY;
     }
 
+    public void centerCameraOnTile(int tileX, int tileY) {
+        camera.position.set(toScreenX(tileX, tileY), toScreenY(tileX, tileY), 0f);
+        camera.update();
+    }
+
     @Override
     public void resize(int width, int height) {
         camera.setToOrtho(false, width, height);

@@ -45,6 +45,7 @@ public class HudRenderer {
     private final BitmapFont font;
     private final GlyphLayout glyphLayout;
     private final ShapeRenderer shape;
+    private final MinimapOverlay minimapOverlay;
 
     public HudRenderer() {
         this.hudCamera   = new OrthographicCamera();
@@ -52,6 +53,7 @@ public class HudRenderer {
         this.font        = new BitmapFont();
         this.glyphLayout = new GlyphLayout();
         this.shape       = new ShapeRenderer();
+        this.minimapOverlay = new MinimapOverlay();
         // Linear filter removes pixelation when the font is scaled up
         font.getRegion().getTexture().setFilter(TextureFilter.Linear, TextureFilter.Linear);
         font.setUseIntegerPositions(false);
@@ -64,6 +66,7 @@ public class HudRenderer {
             GameState state,
             BuildMode currentMode,
             int speedIndex,
+            OrthographicCamera worldCamera,
             int hoverTileX,
             int hoverTileY,
             boolean terrainTooSteep,
@@ -92,6 +95,7 @@ public class HudRenderer {
         batch.end();
         drawMenuButton(w, h);
         drawSpeedButtons(w, h, speedIndex);
+        minimapOverlay.draw(shape, state.getMap(), worldCamera, w, h);
         drawTerrainHoverInfo(w, h, state, hoverTileX, hoverTileY);
 
         drawAssetSelectionOutline(w, h, palette);
@@ -789,5 +793,9 @@ public class HudRenderer {
         batch.dispose();
         font.dispose();
         shape.dispose();
+    }
+
+    public MinimapOverlay getMinimapOverlay() {
+        return minimapOverlay;
     }
 }

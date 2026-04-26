@@ -17,6 +17,7 @@ public class MapInputProcessor implements InputProcessor {
     private final Renderer2D renderer;
     private final GameController gameController;
     private final MinimapOverlay minimapOverlay;
+    private final ObjectInspectorOverlay objectInspectorOverlay;
     private final Vector3 tmp = new Vector3();
 
     private int dragButton = -1;
@@ -31,12 +32,14 @@ public class MapInputProcessor implements InputProcessor {
             InputController inputController,
             Renderer2D renderer,
             GameController gameController,
-            MinimapOverlay minimapOverlay) {
+            MinimapOverlay minimapOverlay,
+            ObjectInspectorOverlay objectInspectorOverlay) {
         this.camera = camera;
         this.inputController = inputController;
         this.renderer = renderer;
         this.gameController = gameController;
         this.minimapOverlay = minimapOverlay;
+        this.objectInspectorOverlay = objectInspectorOverlay;
     }
 
     /**
@@ -52,6 +55,10 @@ public class MapInputProcessor implements InputProcessor {
 
     @Override
     public boolean touchDown(int screenX, int screenY, int pointer, int button) {
+        if (objectInspectorOverlay.isModalOpen()) {
+            return true;
+        }
+
         if (button == Input.Buttons.LEFT
                 && minimapOverlay.containsScreenPoint(screenX, screenY, Gdx.graphics.getHeight())) {
             GameMap map = gameController.getGameState().getMap();
@@ -206,6 +213,13 @@ public class MapInputProcessor implements InputProcessor {
 
     @Override
     public boolean keyDown(int keycode) {
+        if (keycode == Input.Keys.L) {
+            objectInspectorOverlay.toggleDetails(
+                    gameController.getGameState(),
+                    renderer.getHoverTileX(),
+                    renderer.getHoverTileY());
+            return true;
+        }
         if (keycode == Input.Keys.NUM_1) {
             inputController.setGaragePurchaseContentType(TransportContentType.PASSENGERS);
             return true;

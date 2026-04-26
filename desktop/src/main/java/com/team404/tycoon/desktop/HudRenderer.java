@@ -46,6 +46,7 @@ public class HudRenderer {
     private final GlyphLayout glyphLayout;
     private final ShapeRenderer shape;
     private final MinimapOverlay minimapOverlay;
+    private final ObjectInspectorOverlay objectInspectorOverlay;
 
     public HudRenderer() {
         this.hudCamera   = new OrthographicCamera();
@@ -54,6 +55,7 @@ public class HudRenderer {
         this.glyphLayout = new GlyphLayout();
         this.shape       = new ShapeRenderer();
         this.minimapOverlay = new MinimapOverlay();
+        this.objectInspectorOverlay = new ObjectInspectorOverlay();
         // Linear filter removes pixelation when the font is scaled up
         font.getRegion().getTexture().setFilter(TextureFilter.Linear, TextureFilter.Linear);
         font.setUseIntegerPositions(false);
@@ -96,6 +98,7 @@ public class HudRenderer {
         drawMenuButton(w, h);
         drawSpeedButtons(w, h, speedIndex);
         minimapOverlay.draw(shape, state.getMap(), worldCamera, w, h);
+        objectInspectorOverlay.draw(shape, batch, font, glyphLayout, cache, state, hoverTileX, hoverTileY, w, h);
         drawTerrainHoverInfo(w, h, state, hoverTileX, hoverTileY);
 
         drawAssetSelectionOutline(w, h, palette);
@@ -797,5 +800,9 @@ public class HudRenderer {
 
     public MinimapOverlay getMinimapOverlay() {
         return minimapOverlay;
+    }
+
+    public ObjectInspectorOverlay getObjectInspectorOverlay() {
+        return objectInspectorOverlay;
     }
 }

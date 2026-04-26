@@ -68,7 +68,11 @@ public class TransportTycoonGame extends ApplicationAdapter {
 
         AssetPaletteInputProcessor paletteInput = new AssetPaletteInputProcessor(assetPaletteState, inputController);
         MapInputProcessor mapInput = new MapInputProcessor(
-                renderer2D.getCamera(), inputController, renderer2D, assetPaletteState);
+                renderer2D.getCamera(),
+                inputController,
+                renderer2D,
+                gameController,
+                hudRenderer.getMinimapOverlay());
         gameInputMultiplexer = new InputMultiplexer(paletteInput, mapInput);
 
         appScreen = AppScreen.PLAYING;
@@ -134,6 +138,7 @@ public class TransportTycoonGame extends ApplicationAdapter {
                     gameController.getGameState(),
                     inputController.getCurrentMode(),
                     inputController.getGameSpeedIndex(),
+                    renderer2D.getCamera(),
                     renderer2D != null ? renderer2D.getHoverTileX() : -1,
                     renderer2D != null ? renderer2D.getHoverTileY() : -1,
                     inputController.isLastPlacementRejected(),

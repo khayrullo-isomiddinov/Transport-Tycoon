@@ -10,6 +10,8 @@ import com.team404.tycoon.model.Tile;
 import com.team404.tycoon.model.TransportContentType;
 import com.team404.tycoon.model.TileType;
 
+import java.util.Optional;
+
 public class InputController {
 
     private final GameController gameController;
@@ -24,6 +26,7 @@ public class InputController {
      * The renderer or HUD can read this to show feedback to the player.
      */
     private boolean lastPlacementRejected;
+    private boolean lastRoadTypeRejected;
 
     /**
      * Set to true when the most recent terraform click was rejected (tile invalid or can't afford).
@@ -68,15 +71,27 @@ public class InputController {
         return lastPlacementRejected;
     }
 
+    public boolean isLastRoadTypeRejected() {
+        return lastRoadTypeRejected;
+    }
+
     public boolean isLastTerraformRejected() {
         return lastTerraformRejected;
     }
 
     public void onPrimaryClick(int tileX, int tileY) {
         lastPlacementRejected = false;
+        lastRoadTypeRejected = false;
         lastTerraformRejected = false;
         GameState state = gameController.getGameState();
         if (state.isBankrupt()) {
+            return;
+        }
+        // Functional buildings should keep their click behavior even when a road tool is selected.
+        if (selectedAssetPath != null
+                && EconomyConfig.isRoadDecoration(selectedAssetPath)
+                && state.findGarageAt(tileX, tileY).isPresent()) {
+            gameController.purchaseVehicleAtGarage(tileX, tileY, garagePurchaseContentType);
             return;
         }
         if (selectedAssetPath == null) {
@@ -87,6 +102,10 @@ public class InputController {
             }
             return;
         }
+        if (EconomyConfig.isRoadDecoration(selectedAssetPath) && isAutoRoadPath(selectedAssetPath)) {
+            placeAutoRoad(state, tileX, tileY, selectedAssetPath);
+            return;
+        }
         GameMap map = state.getMap();
         int[] fp = DecorationRules.footprintForPath(selectedAssetPath);
         PlacedDecoration dec = new PlacedDecoration(
@@ -95,8 +114,12 @@ public class InputController {
             return;
         }
         if (EconomyConfig.isRoadDecoration(selectedAssetPath)
-                && !placementValidator.canBuildRoad(map, state, tileX, tileY)) {
-            lastPlacementRejected = true;
+                && !placementValidator.canBuildRoad(map, state, tileX, tileY, selectedAssetPath)) {
+            if (placementValidator.hasHeightConflictWithAdjacentRoad(map, state, tileX, tileY)) {
+                lastPlacementRejected = true;
+            } else {
+                lastRoadTypeRejected = true;
+            }
             return;
         }
         if (EconomyConfig.isRoadDecoration(selectedAssetPath)
@@ -109,12 +132,134 @@ public class InputController {
         }
     }
 
+    private void placeAutoRoad(GameState state, int tileX, int tileY, String selectedRoadPath) {
+        GameMap map = state.getMap();
+        if (!placementValidator.canBuildRoad(map, state, tileX, tileY, null)) {
+            if (placementValidator.hasHeightConflictWithAdjacentRoad(map, state, tileX, tileY)) {
+                lastPlacementRejected = true;
+            } else {
+                lastRoadTypeRejected = true;
+            }
+            return;
+        }
+
+        if (!state.isDriveableRoadTile(tileX, tileY)) {
+            if (!state.spendMoney(EconomyConfig.ROAD_DECORATION_COST)) {
+                return;
+            }
+        }
+
+        map.getTile(tileX, tileY).setType(TileType.ROAD);
+        applyRoadDecorationAt(state, tileX, tileY, selectedRoadPath);
+
+        // Recompute neighbors so turns / T-junctions / intersections update automatically.
+        applyRoadDecorationAt(state, tileX + 1, tileY, selectedRoadPath);
+        applyRoadDecorationAt(state, tileX - 1, tileY, selectedRoadPath);
+        applyRoadDecorationAt(state, tileX, tileY + 1, selectedRoadPath);
+        applyRoadDecorationAt(state, tileX, tileY - 1, selectedRoadPath);
+    }
+
+    private void applyRoadDecorationAt(GameState state, int tileX, int tileY, String selectedRoadPath) {
+        GameMap map = state.getMap();
+        if (!map.isInBounds(tileX, tileY)) {
+            return;
+        }
+        if (!state.isDriveableRoadTile(tileX, tileY) && map.getTile(tileX, tileY).getType() != TileType.ROAD) {
+            return;
+        }
+        String roadPath = chooseRoadPathForTile(state, tileX, tileY, selectedRoadPath);
+        if (roadPath == null) {
+            return;
+        }
+        Optional<PlacedDecoration> existing = state.findDecorationAt(tileX, tileY);
+        if (existing.isPresent() && EconomyConfig.isRoadDecoration(existing.get().getResourcePath())) {
+            if (existing.get().getResourcePath().equals(roadPath)) {
+                map.getTile(tileX, tileY).setType(TileType.ROAD);
+                return;
+            }
+            state.removeDecorationAtTile(tileX, tileY);
+        }
+        PlacedDecoration replacement = new PlacedDecoration(tileX, tileY, roadPath, 1, 1);
+        if (state.canPlaceDecoration(map, replacement)) {
+            state.addDecoration(replacement);
+        }
+        map.getTile(tileX, tileY).setType(TileType.ROAD);
+    }
+
+    private String chooseRoadPathForTile(GameState state, int tileX, int tileY, String selectedRoadPath) {
+        boolean up = state.isDriveableRoadTile(tileX, tileY + 1) || isRoadType(state, tileX, tileY + 1);
+        boolean down = state.isDriveableRoadTile(tileX, tileY - 1) || isRoadType(state, tileX, tileY - 1);
+        boolean left = state.isDriveableRoadTile(tileX - 1, tileY) || isRoadType(state, tileX - 1, tileY);
+        boolean right = state.isDriveableRoadTile(tileX + 1, tileY) || isRoadType(state, tileX + 1, tileY);
+        int neighbors = (up ? 1 : 0) + (down ? 1 : 0) + (left ? 1 : 0) + (right ? 1 : 0);
+
+        if (neighbors >= 4) {
+            return "resources/+.png";
+        }
+        if (neighbors == 3 && up && down && right) {
+            return "resources/to-right.png";
+        }
+        if (neighbors == 3 && up && down && left) {
+            return "resources/to-left.png";
+        }
+        if (neighbors == 3 && left && right && up) {
+            return "resources/to-up.png";
+        }
+        if (neighbors == 3 && left && right && down) {
+            return "resources/to-down.png";
+        }
+        if (right && down) {
+            return "resources/up-and-right.png";
+        }
+        if (down && left) {
+            return "resources/right-and-down.png";
+        }
+        if (left && up) {
+            return "resources/down-and-left.png";
+        }
+        if (up && right) {
+            return "resources/left-and-up.png";
+        }
+        if (left || right) {
+            return "resources/highway-straight.png";
+        }
+        if (up || down) {
+            return "resources/highway-top-left.png";
+        }
+        // Isolated first piece: respect selected straight orientation.
+        if (selectedRoadPath != null && selectedRoadPath.toLowerCase().contains("highway-top-left")) {
+            return "resources/highway-top-left.png";
+        }
+        return "resources/highway-straight.png";
+    }
+
+    private boolean isRoadType(GameState state, int tileX, int tileY) {
+        if (!state.getMap().isInBounds(tileX, tileY)) {
+            return false;
+        }
+        return state.getMap().getTile(tileX, tileY).getType() == TileType.ROAD;
+    }
+
+    private static boolean isAutoRoadPath(String resourcePath) {
+        if (resourcePath == null) {
+            return false;
+        }
+        String n = resourcePath.toLowerCase();
+        return n.contains("highway-straight") || n.contains("highway-top-left");
+    }
+
     public void onSecondaryClick(int tileX, int tileY) {
+        GameState state = gameController.getGameState();
+        if (selectedAssetPath != null
+                && EconomyConfig.isRoadDecoration(selectedAssetPath)
+                && state.findGarageAt(tileX, tileY).isPresent()) {
+            gameController.sellOldestVehicleAtGarage(tileX, tileY);
+            return;
+        }
         if (selectedAssetPath == null) {
             gameController.sellOldestVehicleAtGarage(tileX, tileY);
             return;
         }
-        GameState state = gameController.getGameState();
         state.removeDecorationAtTile(tileX, tileY);
     }
 

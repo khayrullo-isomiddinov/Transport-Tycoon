@@ -7,6 +7,7 @@ import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.math.Vector3;
 import com.team404.tycoon.controller.GameController;
 import com.team404.tycoon.controller.InputController;
+import com.team404.tycoon.model.EconomyConfig;
 import com.team404.tycoon.model.GameMap;
 import com.team404.tycoon.model.TransportContentType;
 
@@ -76,7 +77,11 @@ public class MapInputProcessor implements InputProcessor {
         lastDragTileX = tile[0];
         lastDragTileY = tile[1];
 
-        if (button == Input.Buttons.LEFT && inputController.getSelectedAssetPath() != null) {
+        String selectedAssetPath = inputController.getSelectedAssetPath();
+        boolean selectedRoad = selectedAssetPath != null && EconomyConfig.isRoadDecoration(selectedAssetPath);
+        boolean selectedAutoRoad = isAutoRoadSelected(selectedAssetPath);
+
+        if (button == Input.Buttons.LEFT && selectedAssetPath != null && (!selectedRoad || !selectedAutoRoad)) {
             buildDragStartTileX = tile[0];
             buildDragStartTileY = tile[1];
             buildDragMode = pickBuildPreviewMode();
@@ -97,6 +102,13 @@ public class MapInputProcessor implements InputProcessor {
         }
         int[] tile = unprojectToTile(screenX, screenY);
         renderer.setHoverTile(tile[0], tile[1]);
+
+        String selectedAssetPath = inputController.getSelectedAssetPath();
+        boolean selectedRoad = selectedAssetPath != null && EconomyConfig.isRoadDecoration(selectedAssetPath);
+        boolean selectedAutoRoad = isAutoRoadSelected(selectedAssetPath);
+        if (dragButton == Input.Buttons.LEFT && selectedRoad && !selectedAutoRoad) {
+            return true;
+        }
 
         if (buildDragMode != null) {
             int endX = (buildDragMode == Renderer2D.BuildPreviewMode.VERTICAL_LINE) ? buildDragStartTileX : tile[0];
@@ -153,24 +165,16 @@ public class MapInputProcessor implements InputProcessor {
         return false;
     }
 
-    private boolean isHorizontalRoadSelected() {
-        String selected = inputController.getSelectedAssetPath();
-        return selected != null && selected.toLowerCase().contains("highway-straight");
-    }
-
-    private boolean isVerticalRoadSelected() {
-        String selected = inputController.getSelectedAssetPath();
-        return selected != null && selected.toLowerCase().contains("highway-top-left");
-    }
-
     private Renderer2D.BuildPreviewMode pickBuildPreviewMode() {
-        if (isHorizontalRoadSelected()) {
-            return Renderer2D.BuildPreviewMode.HORIZONTAL_LINE;
-        }
-        if (isVerticalRoadSelected()) {
-            return Renderer2D.BuildPreviewMode.VERTICAL_LINE;
-        }
         return Renderer2D.BuildPreviewMode.AREA;
+    }
+
+    private boolean isAutoRoadSelected(String selectedPath) {
+        if (selectedPath == null) {
+            return false;
+        }
+        String n = selectedPath.toLowerCase();
+        return n.contains("highway-straight") || n.contains("highway-top-left");
     }
 
     private void applyAction(int tileX, int tileY, int button) {

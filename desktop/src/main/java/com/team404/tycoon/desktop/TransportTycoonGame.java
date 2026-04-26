@@ -143,6 +143,7 @@ public class TransportTycoonGame extends ApplicationAdapter {
                     renderer2D != null ? renderer2D.getHoverTileX() : -1,
                     renderer2D != null ? renderer2D.getHoverTileY() : -1,
                     inputController.isLastPlacementRejected(),
+                    inputController.isLastRoadTypeRejected(),
                     inputController.isLastTerraformRejected());
         }
     }

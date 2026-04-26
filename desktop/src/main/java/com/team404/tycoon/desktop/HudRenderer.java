@@ -72,6 +72,7 @@ public class HudRenderer {
             int hoverTileX,
             int hoverTileY,
             boolean terrainTooSteep,
+            boolean roadTypeRejected,
             boolean terraformRejected) {
         float w = Gdx.graphics.getWidth();
         float h = Gdx.graphics.getHeight();
@@ -111,6 +112,9 @@ public class HudRenderer {
 
         if (terrainTooSteep) {
             drawTerrainTooSteepWarning(w, h);
+        }
+        if (roadTypeRejected) {
+            drawRoadTypeRejectedWarning(w, h);
         }
         if (terraformRejected) {
             drawTerraformRejectedWarning(w, h);
@@ -348,6 +352,8 @@ public class HudRenderer {
 
     private static final Color TERRAFORM_REJECT_BG   = new Color(0.45f, 0.25f, 0.05f, 0.90f);
     private static final Color TERRAFORM_REJECT_TEXT = new Color(1f,    0.92f, 0.70f, 1f);
+    private static final Color ROAD_TYPE_REJECT_BG   = new Color(0.48f, 0.08f, 0.10f, 0.90f);
+    private static final Color ROAD_TYPE_REJECT_TEXT = new Color(1f,    0.88f, 0.88f, 1f);
 
     private void drawTerraformRejectedWarning(float w, float h) {
         String msg = "Cannot terraform here! (invalid tile or insufficient funds)";
@@ -367,6 +373,30 @@ public class HudRenderer {
         font.getData().setScale(1.1f);
         glyphLayout.setText(font, msg);
         font.setColor(TERRAFORM_REJECT_TEXT);
+        font.draw(batch, msg, w / 2f - glyphLayout.width / 2f, h - panelY - panelH + panelH * 0.65f);
+        font.getData().setScale(1f);
+        font.setColor(Color.WHITE);
+        batch.end();
+    }
+
+    private void drawRoadTypeRejectedWarning(float w, float h) {
+        String msg = "Invalid type of road";
+        float panelH = 38f;
+        float panelY = UiChrome.totalTopHeight() + 6f + 44f; // below the steep warning
+
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+        shape.begin(ShapeRenderer.ShapeType.Filled);
+        shape.setColor(ROAD_TYPE_REJECT_BG);
+        shape.rect(0, h - panelY - panelH, w, panelH);
+        shape.end();
+        Gdx.gl.glDisable(GL20.GL_BLEND);
+
+        batch.setProjectionMatrix(hudCamera.combined);
+        batch.begin();
+        font.getData().setScale(1.1f);
+        glyphLayout.setText(font, msg);
+        font.setColor(ROAD_TYPE_REJECT_TEXT);
         font.draw(batch, msg, w / 2f - glyphLayout.width / 2f, h - panelY - panelH + panelH * 0.65f);
         font.getData().setScale(1f);
         font.setColor(Color.WHITE);

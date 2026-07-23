@@ -201,13 +201,7 @@ Repository maintained by [Khayrullo Isomiddinov](https://github.com/khayrullo-is
 
 ---
 
-## License
 
-No license file is currently included.
-
-That means the source is publicly visible, but standard open-source reuse permissions have not been granted yet.
-
-Add a `LICENSE` file before describing the project as open source.
 
 
 # Mini Transport Tycoon
@@ -354,6 +348,15 @@ Transport-Tycoon/
 The core and desktop parts are kept separate.
 
 The `core` module contains logic that does not depend on the desktop window. The `desktop` module contains rendering, input handling, UI code, and the LWJGL3 launcher.
+
+## License
+
+No license file is currently included.
+
+That means the source is publicly visible, but standard open-source reuse permissions have not been granted yet.
+
+Add a `LICENSE` file before describing the project as open source.
+
 
 ---
 

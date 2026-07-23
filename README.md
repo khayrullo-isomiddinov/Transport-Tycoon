@@ -1,97 +1,359 @@
-# Team 404
-mvn clean install && mvn exec:exec -pl desktop
+## Requirements
 
-cd "/Users/ulookt/Desktop/apps/Team 404/team-404"
+Install the following before running the game:
+
+* Java Development Kit 17 or newer
+* Apache Maven
+
+Check your installations:
+
+```bash
+java -version
+mvn -version
+```
+
+The Java version should be 17 or newer.
+
+---
+
+## Run the game
+
+Clone the repository:
+
+```bash
+git clone https://github.com/khayrullo-isomiddinov/Transport-Tycoon.git
+cd Transport-Tycoon
+```
+
+Build the project:
+
+```bash
 mvn clean install
-mvn -pl desktop exec:exec -Dexec.args="-XstartOnFirstThread -classpath %classpath com.team404.tycoon.desktop.DesktopLauncher"
-
-## Getting started
-
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
-
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
-
-## Add your files
-
-* [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-* [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
-
-```
-cd existing_repo
-git remote add origin https://szofttech.inf.elte.hu/software-technology-2026/group-12/team-404.git
-git branch -M master
-git push -uf origin master
 ```
 
-## Integrate with your tools
+Run the desktop game:
 
-* [Set up project integrations](https://szofttech.inf.elte.hu/software-technology-2026/group-12/team-404/-/settings/integrations)
+```bash
+mvn -pl desktop exec:exec
+```
 
-## Collaborate with your team
+You can also build and run it in one command:
 
-* [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-* [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-* [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-* [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-* [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+```bash
+mvn clean install && mvn -pl desktop exec:exec
+```
 
-## Test and Deploy
+### macOS
 
-Use the built-in continuous integration in GitLab.
+Some macOS setups require the JVM to start on the first thread.
 
-* [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/)
-* [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-* [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-* [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-* [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+Use:
 
-***
+```bash
+mvn clean install
+mvn -pl desktop exec:exec \
+  -Dexec.args="-XstartOnFirstThread -classpath %classpath com.team404.tycoon.desktop.DesktopLauncher"
+```
 
-# Editing this README
+---
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+## Controls
 
-## Suggestions for a good README
+### Mouse
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+| Action                           | Control               |
+| -------------------------------- | --------------------- |
+| Place or use selected item       | Left click            |
+| Remove an item or sell a vehicle | Right click           |
+| Place items across several tiles | Left-click and drag   |
+| Move around the map              | Scroll                |
+| Zoom                             | Ctrl + scroll         |
+| Jump using the minimap           | Left click on minimap |
 
-## Name
-Choose a self-explaining name for your project.
+### Keyboard
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+| Key   | Action                               |
+| ----- | ------------------------------------ |
+| `1`   | Select passenger bus purchases       |
+| `2`   | Select goods truck purchases         |
+| `L`   | Show details for the hovered object  |
+| `Z`   | Reduce horizontal green-light time   |
+| `X`   | Increase horizontal green-light time |
+| `C`   | Reduce vertical green-light time     |
+| `V`   | Increase vertical green-light time   |
+| `R`   | Reset traffic-light timing           |
+| `Esc` | Open the pause menu                  |
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+Game speed can also be changed using the buttons in the interface.
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+---
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+## How a basic game works
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+1. Start a new company.
+2. Choose the map size and difficulty.
+3. Look for towns and useful road connections.
+4. Build or extend roads.
+5. Place and connect a garage.
+6. Choose a bus or truck.
+7. Buy the vehicle through the garage.
+8. Let it carry passengers or goods.
+9. Earn delivery income.
+10. Keep enough money for construction and maintenance.
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+For example, a bus costs money upfront and continues to create maintenance costs as it gets older. It needs a usable route to earn that money back.
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+So buying more vehicles is not always the best move.
+
+---
+
+## Economy values
+
+The current balance settings are kept in one Java configuration class.
+
+Some current values are:
+
+| Item                       |  Value |
+| -------------------------- | -----: |
+| One road tile              |    500 |
+| Passenger bus              | 25,000 |
+| Goods truck                | 22,000 |
+| Bus resale value           | 12,500 |
+| Truck resale value         | 11,000 |
+| Terraforming one tile      |  2,000 |
+| Base vehicle maintenance   |    500 |
+| Revenue per passenger unit |     50 |
+| Revenue per goods unit     |     80 |
+
+These values may change as the game is balanced further.
+
+---
+
+## Build details
+
+The desktop application starts from:
+
+```text
+com.team404.tycoon.desktop.DesktopLauncher
+```
+
+The default window settings are:
+
+* 1280 × 720
+* vertical sync enabled
+* foreground frame rate limited to 60 FPS
+
+---
+
+## Current project state
+
+The game has a working simulation and several connected systems, but it is still a student project under development.
+
+Some parts may need more balancing, testing, UI cleanup, and documentation.
+
+There is currently no packaged installer or downloadable release. The project needs to be built from source with Maven.
+
+---
+
+## Possible next steps
+
+Some useful future improvements would be:
+
+* save and load support
+* a clearer route editor
+* more vehicle types
+* rail and water transport
+* sound and music
+* better building categories
+* more automated tests
+* packaged releases for Windows, macOS, and Linux
+* gameplay screenshots and a short demo GIF
+
+---
 
 ## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+Contributions are welcome.
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+Before making a large change, open an issue and describe what you plan to work on.
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+A basic contribution flow looks like this:
+
+```bash
+git checkout -b feature/my-change
+mvn test
+git add .
+git commit -m "Add my change"
+git push origin feature/my-change
+```
+
+Then open a pull request.
+
+Please keep game logic in the `core` module when possible. Desktop rendering and input code belong in the `desktop` module.
+
+---
+
+## Team
+
+Built by **Team 404** for the Software Technology course at ELTE.
+
+Repository maintained by [Khayrullo Isomiddinov](https://github.com/khayrullo-isomiddinov).
+
+---
 
 ## License
-For open source projects, say how it is licensed.
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+No license file is currently included.
+
+That means the source is publicly visible, but standard open-source reuse permissions have not been granted yet.
+
+Add a `LICENSE` file before describing the project as open source.
+
+
+# Mini Transport Tycoon
+
+A small isometric transport management game built with Java and LibGDX.
+
+Build roads. Connect towns. Buy buses and trucks. Move passengers and goods. And try not to run your company into bankruptcy.
+
+This project was created by Team 404 as part of the Software Technology course at ELTE.
+
+---
+
+## About the game
+
+Mini Transport Tycoon is a desktop transport simulation game.
+
+You start with a generated map containing towns, industrial areas, forests, water, and different terrain heights. Your job is to build a working road network and run a transport company on top of it.
+
+Passenger buses move people between towns. Trucks deliver goods. Successful deliveries earn money, but roads, vehicles, terraforming, and maintenance all cost money too.
+
+The game ends when your company can no longer stay financially alive.
+
+## Main features
+
+### Build a road network
+
+Place roads across the map and connect important locations.
+
+Road tiles automatically change into corners, straight sections, T-junctions, and intersections based on nearby roads.
+
+Road placement also checks terrain height and nearby road connections. So roads cannot simply be placed anywhere without limits.
+
+### Transport passengers and goods
+
+The game supports two transport types:
+
+* passenger buses
+* goods trucks
+
+Vehicles follow routes between towns and transport demand is handled by the simulation.
+
+Passenger and goods deliveries have different income values.
+
+### Buy vehicles through garages
+
+Garages are part of the transport system, not just map decorations.
+
+Connect a garage to a valid road network and use it to buy vehicles for nearby usable routes.
+
+You can choose between:
+
+* `1` — passenger bus
+* `2` — goods truck
+
+Vehicles can also be sold back for part of their original price.
+
+### Manage the company economy
+
+Every decision affects your balance.
+
+Current costs include:
+
+* road construction
+* buses and trucks
+* vehicle maintenance
+* raising or lowering terrain
+
+Income comes from completed passenger and goods deliveries.
+
+Vehicles become more expensive to maintain as they age. Poor planning can push the company into bankruptcy.
+
+### Shape the terrain
+
+Raise and lower individual map tiles to prepare land for roads and buildings.
+
+Terraforming costs money, and road construction is limited when neighbouring terrain is too steep.
+
+### Working traffic lights
+
+Traffic lights switch between horizontal and vertical directions.
+
+Vehicles detect them and wait when their direction has a red light.
+
+The timing can also be changed while playing.
+
+### Random maps
+
+Each game starts on a generated map.
+
+The generator places terrain, water, forests, towns, industrial facilities, and starter road areas.
+
+You can also choose the map size before starting.
+
+### Difficulty settings
+
+The selected difficulty changes the amount of starting money available to the company.
+
+This means the same map can require a different strategy depending on the chosen setting.
+
+### Clickable minimap
+
+The minimap shows the main terrain types and the area currently visible on screen.
+
+Click anywhere on it to move the camera directly to that part of the map.
+
+### Object and terrain information
+
+Hover over the map to see information about the selected tile.
+
+Press `L` while hovering over an object to open more detailed information.
+
+### Adjustable simulation speed
+
+The game supports four speed states:
+
+* paused
+* normal
+* fast
+* very fast
+
+This makes it easier to stop and plan or speed up vehicle movement and income.
+
+---
+
+## Tech stack
+
+* **Java 17**
+* **LibGDX 1.14**
+* **LWJGL3**
+* **Maven**
+* **JUnit 5**
+* **JaCoCo**
+
+The project uses a multi-module Maven structure:
+
+```text
+Transport-Tycoon/
+├── core/       Game rules, models, controllers, and simulation logic
+├── desktop/    LibGDX rendering, desktop input, HUD, and launcher
+├── resources/  Game sprites and other PNG assets
+└── pom.xml     Parent Maven configuration
+```
+
+The core and desktop parts are kept separate.
+
+The `core` module contains logic that does not depend on the desktop window. The `desktop` module contains rendering, input handling, UI code, and the LWJGL3 launcher.
+
+---
 

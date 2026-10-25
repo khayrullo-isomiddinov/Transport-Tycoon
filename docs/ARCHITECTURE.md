@@ -1,10 +1,10 @@
-# Mini Transport Tycoon — MVC Architecture
+# Mini Transport Tycoon — MVC Architecture (Harry)
 
 **Team 404** | Java + Maven + LibGDX
 
 ---
 
-## 1. MVC Overview
+## 1. MVC Overview 
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐

@@ -1,0 +1,26 @@
+<assembly xmlns="http://maven.apache.org/ASSEMBLY/2.2.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/ASSEMBLY/2.2.0 https://maven.apache.org/xsd/assembly-2.2.0.xsd">
+    <!-- Zips the jpackage app-image produced by the release profile. -->
+    <id>release</id>
+    <formats>
+        <format>zip</format>
+    </formats>
+    <includeBaseDirectory>false</includeBaseDirectory>
+    <fileSets>
+        <fileSet>
+            <directory>${release.dist}/${release.name}</directory>
+            <outputDirectory>${release.name}</outputDirectory>
+        </fileSet>
+    </fileSets>
+    <files>
+        <file>
+            <source>${project.basedir}/../docs/release/README.txt</source>
+            <outputDirectory>${release.name}</outputDirectory>
+        </file>
+        <file>
+            <source>${project.basedir}/../docs/release/THIRD_PARTY_NOTICES.txt</source>
+            <outputDirectory>${release.name}</outputDirectory>
+        </file>
+    </files>
+</assembly>

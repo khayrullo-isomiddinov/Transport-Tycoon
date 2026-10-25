@@ -325,7 +325,7 @@ public class HudRenderer {
     private static final Color STEEP_TEXT = new Color(1f,    0.92f, 0.85f, 1f);
 
     private void drawTerrainTooSteepWarning(float w, float h) {
-        String msg = "Terrain too steep — road cannot be built here!";
+        String msg = "Terrain too steep - road cannot be built here!";
         float panelH = 38f;
         float panelY = UiChrome.totalTopHeight() + 6f;
 
@@ -746,7 +746,7 @@ public class HudRenderer {
         batch.begin();
         font.getData().setScale(1.0f);
         font.setColor(0.95f, 0.95f, 1f, 1f);
-        String label = "\u2630 Menu";
+        String label = "Menu";
         glyphLayout.setText(font, label);
         font.draw(batch, label, bx + (bw - glyphLayout.width) / 2f, by + (bh + glyphLayout.height) / 2f);
         font.getData().setScale(1f);
@@ -756,7 +756,7 @@ public class HudRenderer {
 
     // ── speed control buttons ─────────────────────────────────────────────────
 
-    private static final String[] SPEED_LABELS = {"||", "1\u00d7", "2\u00d7", "4\u00d7"};
+    private static final String[] SPEED_LABELS = {"||", "1x", "2x", "4x"};
     private static final Color SPEED_ACTIVE_BG   = new Color(0.20f, 0.40f, 0.20f, 1f);
     private static final Color SPEED_INACTIVE_BG = new Color(0.10f, 0.12f, 0.18f, 0.95f);
     private static final Color SPEED_BORDER      = new Color(0.30f, 0.45f, 0.30f, 1f);

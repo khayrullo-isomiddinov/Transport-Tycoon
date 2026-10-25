@@ -112,13 +112,13 @@ public class MenuScreen extends InputAdapter {
     private static final String[] TIPS = {
         "TIP: Connect towns with roads, then buy vehicles at garages.",
         "TIP: Trucks carry goods, buses carry passengers.",
-        "TIP: Traffic lights slow vehicles — use Z/X and C/V to tune timing.",
-        "TIP: Vehicles stop for red lights and for each other — plan your routes.",
+        "TIP: Traffic lights slow vehicles - use Z/X and C/V to tune timing.",
+        "TIP: Vehicles stop for red lights and for each other - plan your routes.",
         "TIP: Garages must be next to a road tile for vehicles to be purchased.",
-        "TIP: Selling old vehicles returns cash — useful in a tight spot.",
+        "TIP: Selling old vehicles returns cash - useful in a tight spot.",
         "TIP: Maintenance costs are charged automatically every 2 minutes.",
         "TIP: Use Ctrl+Scroll to zoom, WASD/arrows to pan the map.",
-        "TIP: Hard mode starts you with half the capital — every decision counts!",
+        "TIP: Hard mode starts you with half the capital - every decision counts!",
         "TIP: The year advances every 60 seconds. How long can you last?",
     };
     private int   tipIndex  = 0;
@@ -131,8 +131,8 @@ public class MenuScreen extends InputAdapter {
         "Right click           Remove tile / sell vehicle",
         "Click garage (1)      Buy a bus",
         "Click garage (2)      Buy a truck",
-        "Z / X                 Horizontal light −/+ 0.5s",
-        "C / V                 Vertical light −/+ 0.5s",
+        "Z / X                 Horizontal light -/+ 0.5s",
+        "C / V                 Vertical light -/+ 0.5s",
         "R                     Reset light timings",
         "",
         "Goal: haul passengers and goods between towns.",

@@ -34,6 +34,12 @@
             <artifactId>gdx-platform</artifactId>
             <classifier>natives-desktop</classifier>
         </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>${junit.version}</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -50,6 +56,14 @@
             </resource>
         </resources>
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.2.5</version>
+                <configuration>
+                    <useModulePath>false</useModulePath>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>
@@ -79,5 +93,134 @@
             </plugin>
         </plugins>
     </build>
+
+    <!--
+        Self-contained desktop release (bundled Java runtime, no Java install needed).
+        Build on the target OS:  mvn clean install -Prelease
+        Output: desktop/target/dist/MiniTransportTycoon/ and desktop/target/MiniTransportTycoon-<version>-<platform>.zip
+    -->
+    <profiles>
+        <profile>
+            <id>release</id>
+            <properties>
+                <release.name>MiniTransportTycoon</release.name>
+                <!-- jpackage needs a purely numeric version -->
+                <release.version>0.1.0</release.version>
+                <release.platform>windows-x64</release.platform>
+                <release.input>${project.build.directory}/jpackage-input</release.input>
+                <release.dist>${project.build.directory}/dist</release.dist>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-dependency-plugin</artifactId>
+                        <version>3.8.1</version>
+                        <executions>
+                            <execution>
+                                <id>release-copy-dependencies</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>copy-dependencies</goal>
+                                </goals>
+                                <configuration>
+                                    <includeScope>runtime</includeScope>
+                                    <!-- matches classpathPrefix in the jar manifest -->
+                                    <outputDirectory>${release.input}/lib</outputDirectory>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-resources-plugin</artifactId>
+                        <version>3.3.1</version>
+                        <executions>
+                            <execution>
+                                <id>release-copy-main-jar</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>copy-resources</goal>
+                                </goals>
+                                <configuration>
+                                    <outputDirectory>${release.input}</outputDirectory>
+                                    <resources>
+                                        <resource>
+                                            <directory>${project.build.directory}</directory>
+                                            <includes>
+                                                <include>${project.build.finalName}.jar</include>
+                                            </includes>
+                                            <filtering>false</filtering>
+                                        </resource>
+                                    </resources>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>release-jpackage</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <executable>${java.home}/bin/jpackage</executable>
+                                    <arguments combine.self="override">
+                                        <argument>--type</argument>
+                                        <argument>app-image</argument>
+                                        <argument>--name</argument>
+                                        <argument>${release.name}</argument>
+                                        <argument>--app-version</argument>
+                                        <argument>${release.version}</argument>
+                                        <argument>--vendor</argument>
+                                        <argument>Team 404</argument>
+                                        <argument>--input</argument>
+                                        <argument>${release.input}</argument>
+                                        <argument>--main-jar</argument>
+                                        <argument>${project.build.finalName}.jar</argument>
+                                        <argument>--main-class</argument>
+                                        <argument>com.team404.tycoon.desktop.DesktopLauncher</argument>
+                                        <!-- modules reported by jdeps (print-module-deps) over the runtime classpath -->
+                                        <argument>--add-modules</argument>
+                                        <argument>java.base,java.desktop,jdk.unsupported</argument>
+                                        <argument>--jlink-options</argument>
+                                        <argument>--strip-debug --no-man-pages --no-header-files</argument>
+                                        <argument>--dest</argument>
+                                        <argument>${release.dist}</argument>
+                                    </arguments>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-assembly-plugin</artifactId>
+                        <version>3.7.1</version>
+                        <executions>
+                            <execution>
+                                <id>release-zip</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>single</goal>
+                                </goals>
+                                <configuration>
+                                    <finalName>${release.name}-${release.version}-${release.platform}</finalName>
+                                    <appendAssemblyId>false</appendAssemblyId>
+                                    <attach>false</attach>
+                                    <descriptors>
+                                        <descriptor>src/assembly/release-zip.xml</descriptor>
+                                    </descriptors>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
 

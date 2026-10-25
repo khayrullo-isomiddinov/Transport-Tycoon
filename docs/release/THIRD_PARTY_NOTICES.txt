@@ -1,0 +1,40 @@
+THIRD-PARTY SOFTWARE NOTICES
+============================
+
+Mini Transport Tycoon bundles the following third-party components, each under its
+own licence. The components are shipped unmodified as separate files in app/lib/
+and runtime/.
+
+libGDX 1.14.0 (gdx, gdx-backend-lwjgl3, gdx-platform natives)
+    Licence: Apache License 2.0
+    https://libgdx.com  -  https://github.com/libgdx/libgdx
+    Licence text: https://www.apache.org/licenses/LICENSE-2.0.txt
+
+gdx-jnigen-loader 2.5.2
+    Licence: Apache License 2.0
+    https://github.com/libgdx/gdx-jnigen
+
+LWJGL 3.3.3 (lwjgl, lwjgl-glfw, lwjgl-opengl, lwjgl-openal, lwjgl-stb, lwjgl-jemalloc)
+    Licence: BSD 3-Clause
+    https://www.lwjgl.org  -  https://github.com/LWJGL/lwjgl3/blob/master/LICENSE.md
+    Bundled native libraries and their licences:
+      GLFW        zlib/libpng licence      https://www.glfw.org/license
+      OpenAL Soft LGPL 2.0 or later        https://github.com/kcat/openal-soft
+      jemalloc    BSD 2-Clause             https://github.com/jemalloc/jemalloc
+      stb         Public domain / MIT      https://github.com/nothings/stb
+    Full list: https://github.com/LWJGL/lwjgl3/tree/master/doc/notice
+
+JLayer 1.0.1 (libGDX build)
+    Licence: GNU LGPL 2.1
+    https://github.com/libgdx/libgdx (originally JavaZOOM JLayer)
+
+JOrbis 0.0.17
+    Licence: GNU LGPL 2.0 or later
+    http://www.jcraft.com/jorbis/
+
+Java runtime (runtime/ folder)
+    A reduced Java SE runtime created with jlink. Its licence and third-party
+    notices are in runtime/legal/.
+
+LGPL components are dynamically loaded, unmodified libraries. You may replace them
+with your own compatible builds in app/lib/.

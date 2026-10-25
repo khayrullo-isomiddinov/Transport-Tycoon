@@ -29,6 +29,13 @@ public class ObjectInspectorOverlay {
     // Match minimap footprint for visual balance.
     private static final float PANEL_W = 210f;
     private static final float PANEL_H = 150f;
+    // Panel text layout (offsets in HUD pixels). Detail rows start below the header block,
+    // and the hint is pinned to the bottom; the panel grows so the two never overlap.
+    private static final float DETAIL_TOP_OFFSET = 116f;
+    private static final float DETAIL_LINE_STEP = 17f;
+    private static final float HINT_TOP_OFFSET = 16f;
+    private static final float HINT_GAP = 2f;
+    private static final int MAX_PANEL_DETAIL_LINES = 3;
 
     private static final Color PANEL_BG = new Color(0.06f, 0.09f, 0.15f, 0.88f);
     private static final Color PANEL_BORDER = new Color(0.30f, 0.45f, 0.68f, 1f);
@@ -42,6 +49,7 @@ public class ObjectInspectorOverlay {
     private float panelY;
     private float panelW;
     private float panelH;
+    private int panelDetailLines;
 
     private float modalX;
     private float modalY;
@@ -61,7 +69,7 @@ public class ObjectInspectorOverlay {
             float screenHeight
     ) {
         InspectorData data = resolve(state, hoverTileX, hoverTileY);
-        updateLayout(screenWidth, screenHeight);
+        updateLayout(screenWidth, screenHeight, data.lines.size());
 
         drawPanel(shape, batch, font, glyph, textureCache, data, hoverTileX, hoverTileY);
         if (modalOpen) {
@@ -88,11 +96,17 @@ public class ObjectInspectorOverlay {
         }
     }
 
-    private void updateLayout(float screenWidth, float screenHeight) {
+    private void updateLayout(float screenWidth, float screenHeight, int detailLineCount) {
         float mapViewHeight = Math.max(1f, screenHeight - UiChrome.totalTopHeight());
 
+        // Grow upwards to fit the detail rows (keeping the minimap-matching minimum),
+        // but never past the map area; rows that still don't fit are left to the [L] modal.
+        int wantedLines = Math.min(detailLineCount, MAX_PANEL_DETAIL_LINES);
+        float maxPanelH = Math.max(PANEL_H, mapViewHeight - 2f * PANEL_PAD);
+        panelH = Math.max(PANEL_H, Math.min(panelHeightFor(wantedLines), maxPanelH));
+        panelDetailLines = Math.min(wantedLines, detailLinesThatFit(panelH));
+
         panelW = PANEL_W;
-        panelH = PANEL_H;
         panelX = PANEL_PAD;
         panelY = PANEL_PAD;
 
@@ -100,6 +114,15 @@ public class ObjectInspectorOverlay {
         modalH = Math.min(380f, mapViewHeight * 0.62f);
         modalX = (screenWidth - modalW) * 0.5f;
         modalY = (screenHeight - modalH) * 0.5f;
+    }
+
+    private static float panelHeightFor(int detailLines) {
+        return DETAIL_TOP_OFFSET + detailLines * DETAIL_LINE_STEP + HINT_TOP_OFFSET + HINT_GAP;
+    }
+
+    private static int detailLinesThatFit(float height) {
+        float space = height - DETAIL_TOP_OFFSET - HINT_TOP_OFFSET - HINT_GAP;
+        return Math.max(0, (int) Math.floor(space / DETAIL_LINE_STEP));
     }
 
     private void drawPanel(
@@ -159,15 +182,14 @@ public class ObjectInspectorOverlay {
         font.draw(batch, "Tile: (" + hoverTileX + ", " + hoverTileY + ")", panelX + 12f, panelY + panelH - 94f);
 
         font.setColor(new Color(0.76f, 0.84f, 0.95f, 1f));
-        float y = panelY + panelH - 116f;
-        int maxLines = 3;
-        for (int i = 0; i < data.lines.size() && i < maxLines; i++) {
+        float y = panelY + panelH - DETAIL_TOP_OFFSET;
+        for (int i = 0; i < data.lines.size() && i < panelDetailLines; i++) {
             font.draw(batch, data.lines.get(i), panelX + 12f, y);
-            y -= 17f;
+            y -= DETAIL_LINE_STEP;
         }
 
         font.setColor(new Color(0.50f, 0.92f, 1f, 1f));
-        font.draw(batch, "Press [L] for details", panelX + 12f, panelY + 16f);
+        font.draw(batch, "Press [L] for details", panelX + 12f, panelY + HINT_TOP_OFFSET);
 
         font.getData().setScale(1f);
         font.setColor(Color.WHITE);

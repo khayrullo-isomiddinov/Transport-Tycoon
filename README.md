@@ -1,209 +1,3 @@
-## Requirements
-
-Install the following before running the game:
-
-* Java Development Kit 17 or newer
-* Apache Maven
-
-Check your installations:
-
-```bash
-java -version
-mvn -version
-```
-
-The Java version should be 17 or newer.
-
----
-
-## Run the game
-
-Clone the repository:
-
-```bash
-git clone https://github.com/khayrullo-isomiddinov/Transport-Tycoon.git
-cd Transport-Tycoon
-```
-
-Build the project:
-
-```bash
-mvn clean install
-```
-
-Run the desktop game:
-
-```bash
-mvn -pl desktop exec:exec
-```
-
-You can also build and run it in one command:
-
-```bash
-mvn clean install && mvn -pl desktop exec:exec
-```
-
-### macOS
-
-Some macOS setups require the JVM to start on the first thread.
-
-Use:
-
-```bash
-mvn clean install
-mvn -pl desktop exec:exec \
-  -Dexec.args="-XstartOnFirstThread -classpath %classpath com.team404.tycoon.desktop.DesktopLauncher"
-```
-
----
-
-## Controls
-
-### Mouse
-
-| Action                           | Control               |
-| -------------------------------- | --------------------- |
-| Place or use selected item       | Left click            |
-| Remove an item or sell a vehicle | Right click           |
-| Place items across several tiles | Left-click and drag   |
-| Move around the map              | Scroll                |
-| Zoom                             | Ctrl + scroll         |
-| Jump using the minimap           | Left click on minimap |
-
-### Keyboard
-
-| Key   | Action                               |
-| ----- | ------------------------------------ |
-| `1`   | Select passenger bus purchases       |
-| `2`   | Select goods truck purchases         |
-| `L`   | Show details for the hovered object  |
-| `Z`   | Reduce horizontal green-light time   |
-| `X`   | Increase horizontal green-light time |
-| `C`   | Reduce vertical green-light time     |
-| `V`   | Increase vertical green-light time   |
-| `R`   | Reset traffic-light timing           |
-| `Esc` | Open the pause menu                  |
-
-Game speed can also be changed using the buttons in the interface.
-
----
-
-## How a basic game works
-
-1. Start a new company.
-2. Choose the map size and difficulty.
-3. Look for towns and useful road connections.
-4. Build or extend roads.
-5. Place and connect a garage.
-6. Choose a bus or truck.
-7. Buy the vehicle through the garage.
-8. Let it carry passengers or goods.
-9. Earn delivery income.
-10. Keep enough money for construction and maintenance.
-
-For example, a bus costs money upfront and continues to create maintenance costs as it gets older. It needs a usable route to earn that money back.
-
-So buying more vehicles is not always the best move.
-
----
-
-## Economy values
-
-The current balance settings are kept in one Java configuration class.
-
-Some current values are:
-
-| Item                       |  Value |
-| -------------------------- | -----: |
-| One road tile              |    500 |
-| Passenger bus              | 25,000 |
-| Goods truck                | 22,000 |
-| Bus resale value           | 12,500 |
-| Truck resale value         | 11,000 |
-| Terraforming one tile      |  2,000 |
-| Base vehicle maintenance   |    500 |
-| Revenue per passenger unit |     50 |
-| Revenue per goods unit     |     80 |
-
-These values may change as the game is balanced further.
-
----
-
-## Build details
-
-The desktop application starts from:
-
-```text
-com.team404.tycoon.desktop.DesktopLauncher
-```
-
-The default window settings are:
-
-* 1280 × 720
-* vertical sync enabled
-* foreground frame rate limited to 60 FPS
-
----
-
-## Current project state
-
-The game has a working simulation and several connected systems, but it is still a student project under development.
-
-Some parts may need more balancing, testing, UI cleanup, and documentation.
-
-There is currently no packaged installer or downloadable release. The project needs to be built from source with Maven.
-
----
-
-## Possible next steps
-
-Some useful future improvements would be:
-
-* save and load support
-* a clearer route editor
-* more vehicle types
-* rail and water transport
-* sound and music
-* better building categories
-* more automated tests
-* packaged releases for Windows, macOS, and Linux
-* gameplay screenshots and a short demo GIF
-
----
-
-## Contributing
-
-Contributions are welcome.
-
-Before making a large change, open an issue and describe what you plan to work on.
-
-A basic contribution flow looks like this:
-
-```bash
-git checkout -b feature/my-change
-mvn test
-git add .
-git commit -m "Add my change"
-git push origin feature/my-change
-```
-
-Then open a pull request.
-
-Please keep game logic in the `core` module when possible. Desktop rendering and input code belong in the `desktop` module.
-
----
-
-## Team
-
-Built by **Team 404** for the Software Technology course at ELTE.
-
-Repository maintained by [Khayrullo Isomiddinov](https://github.com/khayrullo-isomiddinov).
-
----
-
-
-
-
 # Mini Transport Tycoon
 
 A small isometric transport management game built with Java and LibGDX.
@@ -211,6 +5,16 @@ A small isometric transport management game built with Java and LibGDX.
 Build roads. Connect towns. Buy buses and trucks. Move passengers and goods. And try not to run your company into bankruptcy.
 
 This project was created by Team 404 as part of the Software Technology course at ELTE.
+
+---
+
+## Download and play
+
+**Windows (64-bit):** download `MiniTransportTycoon-<version>-windows-x64.zip` from the
+[Releases](https://github.com/khayrullo-isomiddinov/Transport-Tycoon/releases) page, extract it,
+and run `MiniTransportTycoon/MiniTransportTycoon.exe`. No Java installation is needed.
+
+On macOS and Linux, run the game from source (see below).
 
 ---
 
@@ -348,6 +152,231 @@ Transport-Tycoon/
 The core and desktop parts are kept separate.
 
 The `core` module contains logic that does not depend on the desktop window. The `desktop` module contains rendering, input handling, UI code, and the LWJGL3 launcher.
+
+---
+
+## Requirements
+
+Install the following before running the game:
+
+* Java Development Kit 17 or newer
+* Apache Maven
+
+Check your installations:
+
+```bash
+java -version
+mvn -version
+```
+
+The Java version should be 17 or newer.
+
+---
+
+## Run the game
+
+Clone the repository:
+
+```bash
+git clone https://github.com/khayrullo-isomiddinov/Transport-Tycoon.git
+cd Transport-Tycoon
+```
+
+Build the project:
+
+```bash
+mvn clean install
+```
+
+Run the desktop game:
+
+```bash
+mvn -pl desktop exec:exec
+```
+
+You can also build and run it in one command:
+
+```bash
+mvn clean install && mvn -pl desktop exec:exec
+```
+
+### macOS
+
+Some macOS setups require the JVM to start on the first thread.
+
+Use:
+
+```bash
+mvn clean install
+mvn -pl desktop exec:exec \
+  -Dexec.args="-XstartOnFirstThread -classpath %classpath com.team404.tycoon.desktop.DesktopLauncher"
+```
+
+---
+
+## Controls
+
+### Mouse
+
+| Action                           | Control               |
+| -------------------------------- | --------------------- |
+| Place or use selected item       | Left click            |
+| Remove an item or sell a vehicle | Right click           |
+| Place items across several tiles | Left-click and drag   |
+| Move around the map              | WASD / arrow keys / scroll |
+| Zoom                             | Ctrl + scroll         |
+| Jump using the minimap           | Left click on minimap |
+
+### Keyboard
+
+| Key   | Action                               |
+| ----- | ------------------------------------ |
+| `1`   | Select passenger bus purchases       |
+| `2`   | Select goods truck purchases         |
+| `L`   | Show details for the hovered object  |
+| `Z`   | Reduce horizontal green-light time   |
+| `X`   | Increase horizontal green-light time |
+| `C`   | Reduce vertical green-light time     |
+| `V`   | Increase vertical green-light time   |
+| `R`   | Reset traffic-light timing           |
+| `Esc` | Open the pause menu                  |
+
+Game speed can also be changed using the buttons in the interface.
+
+---
+
+## How a basic game works
+
+1. Start a new company.
+2. Choose the map size and difficulty.
+3. Look for towns and useful road connections.
+4. Build or extend roads.
+5. Place and connect a garage.
+6. Choose a bus or truck.
+7. Buy the vehicle through the garage.
+8. Let it carry passengers or goods.
+9. Earn delivery income.
+10. Keep enough money for construction and maintenance.
+
+For example, a bus costs money upfront and continues to create maintenance costs as it gets older. It needs a usable route to earn that money back.
+
+So buying more vehicles is not always the best move.
+
+---
+
+## Economy values
+
+The current balance settings are kept in one Java configuration class.
+
+Some current values are:
+
+| Item                       |  Value |
+| -------------------------- | -----: |
+| One road tile              |    500 |
+| Passenger bus              | 25,000 |
+| Goods truck                | 22,000 |
+| Bus resale value           | 12,500 |
+| Truck resale value         | 11,000 |
+| Terraforming one tile      |  2,000 |
+| Base vehicle maintenance   |    500 |
+| Revenue per passenger unit |     50 |
+| Revenue per goods unit     |     80 |
+
+These values may change as the game is balanced further.
+
+---
+
+## Build details
+
+The desktop application starts from:
+
+```text
+com.team404.tycoon.desktop.DesktopLauncher
+```
+
+The default window settings are:
+
+* 1280 × 720
+* vertical sync enabled
+* foreground frame rate limited to 60 FPS
+
+---
+
+## Build a release
+
+Builds a Windows app folder with a bundled, trimmed Java runtime (via `jpackage`) and zips it.
+Run on Windows with JDK 17+:
+
+```bash
+mvn clean install -Prelease
+```
+
+Output:
+
+* `desktop/target/dist/MiniTransportTycoon/`: runnable app (`MiniTransportTycoon.exe`)
+* `desktop/target/MiniTransportTycoon-0.1.0-windows-x64.zip`: the downloadable archive
+
+Override the version with `-Drelease.version=0.2.0`. The **Release build** GitHub Actions
+workflow builds the same zip on demand, or on `v*` tags, and attaches it to a GitHub Release.
+Publishing steps for itch.io are in [docs/release/ITCH_IO.md](docs/release/ITCH_IO.md).
+
+---
+
+## Current project state
+
+The game has a working simulation and several connected systems, but it is still a student project under development.
+
+Some parts may need more balancing, testing, UI cleanup, and documentation.
+
+A self-contained Windows build (bundled Java runtime) is produced by the `release` Maven profile; see [Build a release](#build-a-release).
+
+---
+
+## Possible next steps
+
+Some useful future improvements would be:
+
+* save and load support
+* a clearer route editor
+* more vehicle types
+* rail and water transport
+* sound and music
+* better building categories
+* more automated tests
+* packaged releases for macOS and Linux
+* gameplay screenshots and a short demo GIF
+
+---
+
+## Contributing
+
+Contributions are welcome.
+
+Before making a large change, open an issue and describe what you plan to work on.
+
+A basic contribution flow looks like this:
+
+```bash
+git checkout -b feature/my-change
+mvn test
+git add .
+git commit -m "Add my change"
+git push origin feature/my-change
+```
+
+Then open a pull request.
+
+Please keep game logic in the `core` module when possible. Desktop rendering and input code belong in the `desktop` module.
+
+---
+
+## Team
+
+Built by **Team 404** for the Software Technology course at ELTE.
+
+Repository maintained by [Khayrullo Isomiddinov](https://github.com/khayrullo-isomiddinov).
+
+---
 
 ## License
 

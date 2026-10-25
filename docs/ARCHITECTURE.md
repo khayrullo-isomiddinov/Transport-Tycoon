@@ -30,50 +30,48 @@
 
 **Responsibility:** Game data and business rules. No LibGDX, no rendering, no input.
 
-### 2.1 Packages & Classes
+### 2.1 Classes (`core/src/main/java/com/team404/tycoon/model/`)
 
-| Package | Classes | Description |
-|---------|---------|-------------|
-| `model.map` | `GameMap`, `Tile`, `TileType` | Grid, tile types (empty, road, water, etc.) |
-| `model.map` | `City`, `IndustrialFacility` | Cities (3×3+), facilities (2×2+) |
-| `model.map` | `Road`, `Stop` | Roads, stops on roads |
-| `model.economy` | `Economy`, `Capital` | Money, income, costs, bankruptcy |
-| `model.economy` | `GoodsType`, `Demand` | Goods, passengers, demand over time |
-| `model.transport` | `Vehicle`, `VehicleType` | Vehicles, speed, capacity, maintenance |
-| `model.transport` | `Route`, `RouteStop` | Ordered stops (A→B→C→A) |
-| `model.transport` | `Cargo`, `CargoType` | Cargo/passengers carried |
-| `model` | `GameState` | **Single source of truth** — aggregates map, economy, vehicles, routes, time |
+| Class | Description |
+|-------|-------------|
+| `GameState` | **Aggregate root**: map, towns, routes, vehicles, demand, decorations, balance, bankruptcy, simulation time, traffic-light timing |
+| `GameMap`, `Tile`, `TileType` | Grid, terrain types and tile heights |
+| `Town`, `TransportDemand`, `Shipment` | Towns and the passenger/goods demand between them |
+| `Route`, `RouteStop`, `RoadPathfinder` | Routes over the road network and pathfinding |
+| `Vehicle`, `VehicleType`, `TransportContentType` | Buses/trucks, capacity, ageing maintenance; passengers vs goods |
+| `PlacedDecoration`, `DecorationRules`, `BuildMode` | Placed buildings/roads/garages and what may be placed where |
+| `EconomyConfig`, `Difficulty` | **All balance values** (costs, revenues) and starting capital |
+| `RandomMapGenerator` | Terrain, water, forests, towns, industry and starter roads |
 
 ### 2.2 Key Rules
 
 - Model classes have **no** imports from `com.badlogic.gdx` or any view/controller package
 - Model is **testable** in isolation (plain JUnit)
-- `GameState` is the only object the View reads from
+- `GameState` is the single source of truth for game data
 
 ---
 
 ## 3. View
 
-**Responsibility:** Render the Model. Read-only access to Model. No game logic.
+**Responsibility:** Render the Model. No game logic.
 
-### 3.1 Components
+### 3.1 Components (`desktop/src/main/java/com/team404/tycoon/desktop/`)
 
 | Component | Responsibility |
 |-----------|----------------|
-| `GameRenderer` (interface) | `void render(GameState state, float delta)` — abstraction for 2D/3D |
-| `Renderer2D` | SpriteBatch, OrthographicCamera, tile sprites |
-| `Renderer3D` | ModelBatch, PerspectiveCamera *(add later if 3D sub-task)* |
-| `MapView` | Renders map tiles, roads, cities, facilities |
-| `VehicleView` | Renders vehicles at positions |
-| `StopView` | Renders stops |
-| `UIManager` | HUD (capital, time speed), build menu, route editor overlay |
-| `MinimapView` | Minimap *(sub-task)* |
+| `GameRenderer` (interface) | `render(GameController controller, float deltaSeconds)`, `resize`, `dispose`. Abstraction for 2D/3D |
+| `Renderer2D` | Isometric map, roads, buildings and vehicles (SpriteBatch, OrthographicCamera) |
+| `HudRenderer` | HUD: balance, speed buttons, build palette, hover info |
+| `MinimapOverlay`, `ObjectInspectorOverlay` | Clickable minimap; `L` object details |
+| `MenuScreen` | Main menu (company name, map size, difficulty), pause and game-over screens |
+| `UiChrome` | Shared UI drawing helpers |
+| `assets/*` | Texture loading and caching, white-to-transparent keying, build-palette state, asset manifest |
 
 ### 3.2 Key Rules
 
-- View **only reads** from `GameState` (and sub-objects)
-- View **never** modifies Model
-- View has **no** input handling logic (that's Controller)
+- View reads state through `GameController.getGameState()`
+- View **never** modifies the Model directly; player actions go through `InputController`
+- Input processors (`MapInputProcessor`, `AssetPaletteInputProcessor`) translate LibGDX events into `InputController` calls
 
 ---
 
@@ -81,97 +79,57 @@
 
 **Responsibility:** Handle input, update Model, orchestrate game loop.
 
-### 4.1 Components
+### 4.1 Components (`core/src/main/java/com/team404/tycoon/controller/`)
 
 | Controller | Responsibility |
 |------------|----------------|
-| `GameController` | Main game loop: `update(delta)` → tick simulation, time, vehicles. Delegates to other controllers. |
-| `InputController` | Maps mouse/keyboard to actions (click, drag, key press). Passes to BuildController, RouteController, etc. |
-| `BuildController` | Build roads, place stops. Validates placement, deducts cost, updates Model. |
-| `RouteController` | Create/edit routes, assign vehicles. Updates Model routes. |
-| `VehicleController` | Spawn vehicles, movement logic, loading/unloading. Updates Model vehicles. |
-| `EconomyController` | Apply income/costs each tick, check bankruptcy. Updates Model economy. |
-| `SaveController` | Save/load `GameState`. *(sub-task)* |
+| `GameController` | `update(delta)`: ticks simulation, speed multiplier, demand regeneration, vehicle purchase/sale at garages, traffic-light timing |
+| `InputController` | Current build mode, placement/removal/terraform actions, game speed, menu requests |
+| `PlacementValidator` | Whether a road/build/demolish/terraform is allowed (terrain, height difference, adjacent road types) |
+| `TransportSimulation` | Vehicle movement, loading/unloading, delivery income, maintenance |
+
+Save/load is not implemented yet.
 
 ### 4.2 Key Rules
 
 - Controller **updates** Model
-- Controller **does not** render; it triggers View refresh via the game loop
-- Controller may use **services** (e.g. `Pathfinder`, `GameClock`) as infrastructure
+- Controller **does not** render; the game loop calls the View after `update`
 
 ---
 
 ## 5. Game Loop (MVC in action)
 
+`TransportTycoonGame` (a LibGDX `ApplicationAdapter`) switches between `MENU` and `PLAYING`:
+
 ```java
-// DesktopLauncher or main ApplicationAdapter
-public void render() {
-    float delta = Gdx.graphics.getDeltaTime();
-    
-    // 1. Controller: process input
-    inputController.handleInput();
-    
-    // 2. Controller: update model (if not paused)
-    if (!gameState.isPaused()) {
-        gameController.update(delta);
-    }
-    
-    // 3. View: render model
-    gameRenderer.render(gameState, delta);
-}
+// TransportTycoonGame.render(), PLAYING state (simplified)
+if (inputController.isMenuRequested())          { /* show pause menu */ }
+if (gameController.getGameState().isBankrupt()) { /* game-over screen */ }
+gameController.update(delta);               // Controller -> Model
+renderer.render(gameController, delta);     // View reads Model
+hudRenderer.render(...);                    // HUD on top
 ```
+
+Input arrives asynchronously through an `InputMultiplexer` (palette first, then map).
 
 ---
 
-## 6. Package Structure (Maven modules)
+## 6. Module Structure (Maven)
 
 ```
-core/
-├── model/
-│   ├── GameState.java
-│   ├── map/
-│   │   ├── GameMap.java
-│   │   ├── Tile.java
-│   │   ├── City.java
-│   │   ├── IndustrialFacility.java
-│   │   ├── Road.java
-│   │   └── Stop.java
-│   ├── economy/
-│   │   ├── Economy.java
-│   │   ├── GoodsType.java
-│   │   └── Demand.java
-│   └── transport/
-│       ├── Vehicle.java
-│       ├── Route.java
-│       ├── RouteStop.java
-│       └── Cargo.java
-│
-├── view/
-│   ├── GameRenderer.java      (interface)
-│   ├── Renderer2D.java
-│   ├── MapView.java
-│   ├── VehicleView.java
-│   ├── StopView.java
-│   ├── UIManager.java
-│   └── MinimapView.java       (sub-task)
-│
-├── controller/
-│   ├── GameController.java
-│   ├── InputController.java
-│   ├── BuildController.java
-│   ├── RouteController.java
-│   ├── VehicleController.java
-│   ├── EconomyController.java
-│   └── SaveController.java    (sub-task)
-│
-└── infrastructure/            (used by Controller, not MVC core)
-    ├── GameClock.java
-    ├── Pathfinder.java
-    ├── AssetManager.java
-    └── SaveFileHandler.java
+core/                         pure Java, no LibGDX
+└── com/team404/tycoon/
+    ├── model/                (classes in 2.1)
+    └── controller/           (classes in 4.1)
 
-desktop/
-└── DesktopLauncher.java       (main, wires MVC, starts game loop)
+desktop/                      LibGDX + LWJGL3
+└── com/team404/tycoon/desktop/
+    ├── DesktopLauncher       main(); only LWJGL3-specific class
+    ├── TransportTycoonGame   ApplicationAdapter, wires MVC
+    ├── (view classes in 3.1, input processors)
+    └── assets/
+
+resources/                    PNG sprites, packaged into the desktop jar under resources/
 ```
 
 ---
@@ -179,8 +137,8 @@ desktop/
 ## 7. Dependency Rules
 
 ```
-View     → Model only (read)
-Controller → Model, Infrastructure
+View       → Controller, Model (read)
+Controller → Model
 Model    → nothing (no outgoing dependencies to view/controller)
 ```
 
@@ -191,11 +149,12 @@ Model    → nothing (no outgoing dependencies to view/controller)
 When adding 3D (sub-task):
 
 1. Create `Renderer3D implements GameRenderer`
-2. Implement `render(GameState state, float delta)` using 3D APIs
-3. Swap `Renderer2D` for `Renderer3D` in launcher
+2. Implement `render(GameController controller, float deltaSeconds)` using 3D APIs
+3. Swap `Renderer2D` for `Renderer3D` in `TransportTycoonGame`
 4. **Model and Controller unchanged**
 
 ---
 
-*Document version: 1.0*  
+*Document version: 1.1 (updated to match the implemented code)*
+
 *Team 404 — Mini Transport Tycoon*

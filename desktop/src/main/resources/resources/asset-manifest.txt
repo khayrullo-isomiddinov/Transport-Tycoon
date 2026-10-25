@@ -1,12 +1,6 @@
-# One PNG filename per line (used when directory listing fails, e.g. IDE run without Maven resource copy)
-asphalt with sth.png
-asphalt.png
-bigaphaslt.png
-bighighwaydown.png
-bighighwayleft.png
-bighighwayright.png
-bighighwayup.png
-black asphalt.png
+# One PNG filename per line (used when directory listing fails, e.g. packaged jar or IDE run without Maven resource copy)
+# Must match the PNGs in resources/ exactly (enforced by AssetManifestTest).
++.png
 building1.png
 building2.png
 building3.png
@@ -15,43 +9,34 @@ building5.png
 building6.png
 building7.png
 building8.png
-downblue.png
-downblueArrow.png
-east-up.png
+car-down-left.png
+car-down-right.png
+car-left.png
+car-right.png
+down-and-left.png
+forest.png
 garage.png
 garage1.png
-grass.png
-greyroaddown.png
-greyroadleft.png
-greyroadright.png
-greyroadup.png
 groundgrey.png
 highway-straight.png
 highway-top-left.png
-left-down.png
-left-up.png
-leftblue.png
-leftblueArrow.png
-pink wall right.png
-pink wall.png
-playground.png
-right-down.png
-rightblue.png
-rightblueArrow.png
+intersection.png
+intersection2.png
+left-and-up.png
+right-and-down.png
+simpleground.png
 somegreybuilding.png
 teplitsa.png
+to-down.png
+to-left.png
+to-right.png
+to-up.png
 trafficlights.png
 tree.png
+up-and-right.png
 upblue.png
 upblueArrow.png
 villagehouse.png
 villagehousewithgrass.png
 villagehousewithgrass2.png
-yelloweoadright.png
-yellowroadintersectiondown.png
-yellowroadintersectionleft.png
-yellowroadintersectionright.png
-yellowroadintersectionup.png
-yellowroadleft.png
-car-right.png
-car-left.png
+waterr.png

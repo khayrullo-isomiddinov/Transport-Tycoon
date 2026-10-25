@@ -93,7 +93,13 @@ public final class ResourceFileHandles {
             if (!line.toLowerCase(Locale.ROOT).endsWith(".png")) {
                 continue;
             }
-            out.add(line.contains("/") ? line : "resources/" + line);
+            String path = line.contains("/") ? line : "resources/" + line;
+            // Skip stale entries so a missing sprite can't crash the palette at load time.
+            if (!resolve(path).exists()) {
+                Gdx.app.error("ResourceFileHandles", "Manifest entry not found, skipping: " + path);
+                continue;
+            }
+            out.add(path);
         }
         Collections.sort(out);
         return out;
